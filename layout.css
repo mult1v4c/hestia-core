@@ -37,8 +37,8 @@ h1 {
     flex: 1;
     padding: var(--grid-padding);
     display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    grid-template-rows: repeat(6, 1fr);
+    grid-template-columns: repeat(var(--grid-cols, 10), 1fr);
+    grid-template-rows: repeat(var(--grid-rows, 6), 1fr);
     gap: var(--gap-size);
     position: relative;
     transition: gap 0.3s, padding 0.3s;
@@ -52,8 +52,8 @@ h1 {
     bottom: var(--grid-padding);
 
     display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    grid-template-rows: repeat(6, 1fr);
+    grid-template-columns: repeat(var(--grid-cols, 10), 1fr);
+    grid-template-rows: repeat(var(--grid-rows, 6), 1fr);
     gap: var(--gap-size);
 
     pointer-events: none;
@@ -102,7 +102,7 @@ h1 {
 /* Edit Mode: Dashed Lines & Re-enabled Transition */
 .dashboard-container.edit-mode .app-card {
     cursor: grab;
-    border-color: var(--border-dim);
+    border-color: var(--border-edit-mode);
     border-style: dashed;
     transition: box-shadow 0.2s, background-color 0.2s, border-color 0.2s;
 }
@@ -170,11 +170,11 @@ h1 {
     position: absolute;
     top: 8px;
     right: 8px;
-    width: 24px;
-    height: 24px;
+    width: 30px;
+    height: 30px;
     background: var(--status-error);
     color: white;
-    border-radius: 50%;
+    border-radius: 4px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -189,4 +189,21 @@ h1 {
 .dashboard-container.edit-mode .app-card:hover .delete-btn {
     opacity: 1;
     pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+    }
+
+    .grid-lines { display: none; }
+
+    .app-card {
+        width: 100%;
+        min-height: 150px;
+        grid-column: auto !important;
+        grid-row: auto !important;
+    }
 }

@@ -13,16 +13,16 @@
 <body>
 
     <header>
-        <h1 id="headerTitle"><i class="fa-solid fa-server"></i> HESTIA</h1>
+        <h1 id="headerTitle"><i class="fa-solid fa-fire"></i> HESTIA</h1>
         <div class="toolbar">
-            <button class="btn" id="settingsBtn" onclick="toggleSettingsPanel()">
-                <i class="fa-solid fa-sliders"></i> Settings
+            <button class="btn btn-icon" id="addBtn" onclick="promptNewApp()" disabled>
+                <i class="fa-solid fa-plus"></i>
             </button>
-            <button class="btn" id="addBtn" onclick="promptNewApp()" disabled>
-                <i class="fa-solid fa-plus"></i> Add
+            <button class="btn btn-icon btn-primary" id="editBtn" onclick="toggleEditMode()">
+                <i class="fa-solid fa-pen-to-square"></i>
             </button>
-            <button class="btn btn-primary" id="editBtn" onclick="toggleEditMode()">
-                <i class="fa-solid fa-pen-to-square"></i> Edit
+            <button class="btn btn-icon btn-primary" id="settingsBtn" onclick="toggleSettingsPanel()">
+                <i class="fa-solid fa-sliders"></i>
             </button>
         </div>
     </header>
@@ -35,31 +35,24 @@
 
         <div class="settings-modal-header">
             <h3>Dashboard Settings</h3>
-            <button class="btn btn-primary" onclick="saveAndCloseSettings()" title="Save and Close">
-                <i class="fa-solid fa-floppy-disk"></i> Save & Close
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-icon" onclick="exportConfig()" title="Download current theme and layout">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+                <button class="btn btn-icon" onclick="document.getElementById('file-import').click()" title="Load theme and layout from a file">
+                    <i class="fa-solid fa-upload"></i>
+                </button>
+                <input type="file" id="file-import" accept=".json" onchange="importConfig(event)" style="display: none;">
+                <button class="btn btn-error" onclick="confirmReset()" title="Wipes all saved settings and returns to the hardcoded defaults">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+                <button class="btn btn-icon" onclick="toggleSettingsPanel()" title="Close Settings">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
         </div>
 
         <div class="settings-content">
-
-            <div class="settings-group">
-                <h4>Configuration Management</h4>
-                <div class="general-grid-container" style="grid-template-columns: 1fr;">
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn" onclick="exportConfig()" title="Download current theme and layout">
-                            <i class="fa-solid fa-download"></i> Export
-                        </button>
-                        <button class="btn" onclick="document.getElementById('file-import').click()" title="Load theme and layout from a file">
-                            <i class="fa-solid fa-upload"></i> Import
-                        </button>
-                        <input type="file" id="file-import" accept=".json" onchange="importConfig(event)" style="display: none;">
-                        <button class="btn btn-error" onclick="confirmReset()" title="Wipes all saved settings and returns to the hardcoded defaults">
-                            <i class="fa-solid fa-rotate"></i> Reset All Defaults
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             <div class="settings-group">
                 <h4>General</h4>
                 <div class="general-grid-container">
@@ -72,9 +65,9 @@
                             </div>
                         </div>
                         <div class="setting-row">
-                            <span class="setting-label">Icon (FontAwesome)</span>
+                            <span class="setting-label">Icon</span>
                             <div class="setting-controls">
-                                <input type="text" class="setting-val" id="input-titleBarIcon" value="fa-server" data-default="fa-server" onchange="updateSetting('titleBarIcon', this.value)">
+                                <input type="text" class="setting-val" id="input-titleBarIcon" value="fa-fire" data-default="fa-fire" title="FontAwesome class (e.g. fa-fire)" onchange="updateSetting('titleBarIcon', this.value)">
                                 <i class="fa-solid fa-rotate-left reset-icon" id="reset-titleBarIcon" onclick="resetSetting('titleBarIcon')"></i>
                             </div>
                         </div>
@@ -85,46 +78,63 @@
                                 <i class="fa-solid fa-rotate-left reset-icon" id="reset-fontFamily" onclick="resetSetting('fontFamily')"></i>
                             </div>
                         </div>
-                    </div>
 
-                    <div>
                         <div class="setting-row">
-                            <span class="setting-label">Gap Size</span>
-                            <div class="setting-controls">
-                                <input type="text" class="setting-val" style="width:100px; text-align:right;" id="input-gapSize" value="5px" data-default="10px" onchange="updateSetting('gapSize', this.value)">
-                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-gapSize" onclick="resetSetting('gapSize')"></i>
+                            <span class="setting-label">Shadows</span>
+                            <div class="setting-controls" style="width: 270px; padding-left: 50px; justify-content: flex-start;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="input-shadow" data-default="true" onchange="updateSetting('shadow', this.checked, true)">
+                                    <span class="slider"></span>
+                                </label>
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-shadow" onclick="resetSetting('shadow')"></i>
                             </div>
                         </div>
                         <div class="setting-row">
+                            <span class="setting-label">Outlines</span>
+                            <div class="setting-controls" style="width: 270px; padding-left: 50px; justify-content: flex-start;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="input-outlines" data-default="true" onchange="updateSetting('outlines', this.checked, true)">
+                                    <span class="slider"></span>
+                                </label>
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-outlines" onclick="resetSetting('outlines')"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="setting-row">
                             <span class="setting-label">Padding</span>
                             <div class="setting-controls">
-                                <input type="text" class="setting-val" style="width:100px; text-align:right;" id="input-gridPadding" value="5px" data-default="20px" onchange="updateSetting('gridPadding', this.value)">
+                                <input type="text" class="setting-val" style="width:150px; text-align:right;" id="input-gridPadding" value="5px" data-default="20px" onchange="updateSetting('gridPadding', this.value)">
                                 <i class="fa-solid fa-rotate-left reset-icon" id="reset-gridPadding" onclick="resetSetting('gridPadding')"></i>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Gap Size</span>
+                            <div class="setting-controls">
+                                <input type="text" class="setting-val" style="width:150px; text-align:right;" id="input-gapSize" value="5px" data-default="10px" onchange="updateSetting('gapSize', this.value)">
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-gapSize" onclick="resetSetting('gapSize')"></i>
                             </div>
                         </div>
                         <div class="setting-row">
                             <span class="setting-label">Radius</span>
                             <div class="setting-controls">
-                                <input type="text" class="setting-val" style="width:100px; text-align:right;" id="input-borderRadius" value="5px" data-default="5px" onchange="updateSetting('borderRadius', this.value)">
+                                <input type="text" class="setting-val" style="width:150px; text-align:right;" id="input-borderRadius" value="5px" data-default="5px" onchange="updateSetting('borderRadius', this.value)">
                                 <i class="fa-solid fa-rotate-left reset-icon" id="reset-borderRadius" onclick="resetSetting('borderRadius')"></i>
                             </div>
                         </div>
 
-                        <div style="display:flex; justify-content: space-between; gap: 40px; margin-top: 10px;">
-                            <div class="setting-row" style="flex-grow:1; margin-bottom: 0;">
-                                <span class="setting-label">Shadows</span>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="input-shadow" data-default="true" onchange="updateSetting('shadow', this.checked, true)">
-                                    <span class="slider"></span>
-                                </label>
+                        <div class="setting-row">
+                            <span class="setting-label">Columns</span>
+                            <div class="setting-controls">
+                                <input type="text" class="setting-val" style="width:150px; text-align:right;" id="input-gridColumns" value="10" data-default="10" onchange="updateSetting('gridColumns', this.value)">
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-gridColumns" onclick="resetSetting('gridColumns')"></i>
                             </div>
-
-                            <div class="setting-row" style="flex-grow:1; margin-bottom: 0;">
-                                <span class="setting-label">Outlines</span>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="input-outlines" data-default="true" onchange="updateSetting('outlines', this.checked, true)">
-                                    <span class="slider"></span>
-                                </label>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Rows</span>
+                            <div class="setting-controls">
+                                <input type="text" class="setting-val" style="width:150px; text-align:right;" id="input-gridRows" value="6" data-default="6" onchange="updateSetting('gridRows', this.value)">
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-gridRows" onclick="resetSetting('gridRows')"></i>
                             </div>
                         </div>
                     </div>
@@ -220,11 +230,9 @@
 
                 </div>
             </div>
-
         </div>
-
         <div class="settings-footer">
-            Hestia-core v0.1.0 &nbsp; <i class="fa-solid fa-heart" style="color:var(--status-error);"></i> &nbsp; <a href="#" target="_blank"><i class="fa-brands fa-github"></i></a>
+            Hestia-core v0.1.0 &nbsp; <i class="fa-solid fa-heart" style="color:var(--status-error);"></i> &nbsp; <a href="https://github.com/mult1v4c/hestia-core" target="_blank"><i class="fa-brands fa-github"></i></a>
         </div>
 
         <input type="color" class="hidden-native-picker" id="input-bgCanvas" value="#181818" onchange="updateSetting('bgCanvas', this.value)">
@@ -253,8 +261,8 @@
             <div class="modal-header" id="modalTitle">Title</div>
             <div class="modal-body" id="modalContent">Content</div>
             <div class="modal-footer">
-                <button class="btn" id="modalCancel">Cancel</button>
-                <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+                <button class="btn" id="modalCancel"><i class="fa-solid fa-xmark"></i></button>
+                <button class="btn btn-icon btn-primary" id="modalConfirm"><i class="fa-solid fa-checkmark"></i></button>
             </div>
         </div>
     </div>
@@ -263,13 +271,39 @@
     window.HESTIA_CONFIG_DEFAULT = {
         "theme": {
             "activePalette": "default-dark",
-            "bgCanvas": "#181818", "bgHighlight": "#383838", "bgSurface": "#282828",
-            "borderBright": "#585858", "borderDim": "#383838",
-            "borderRadius": "5px", "brandPrimary": "#a1b56c", "brandSecondary": "#7cafc2", "brandTertiary": "#ba8baf",
-            "fontFamily": "Iosevka", "gapSize": "5px", "gridPadding": "5px", "outlines": false, "shadow": false,
-            "statusError": "#ab4642", "statusSuccess": "#a1b56c", "statusWarning": "#dc9656",
-            "textFaint": "#585858", "textInverse": "#181818", "textMain": "#d8d8d8", "textMuted": "#b8b8b8",
-            "titleBarIcon": "fa-server", "titleBarText": "HESTIA"
+
+            "bgCanvas": "#181818",
+            "bgHighlight": "#383838",
+            "bgSurface": "#282828",
+
+            "borderBright": "#585858",
+            "borderDim": "#383838",
+
+            "brandPrimary": "#a1b56c",
+            "brandSecondary": "#7cafc2",
+            "brandTertiary": "#ba8baf",
+
+            "statusError": "#ab4642",
+            "statusWarning": "#dc9656",
+            "statusSuccess": "#a1b56c",
+
+            "textFaint": "#585858",
+            "textInverse": "#181818",
+            "textMain": "#d8d8d8",
+            "textMuted": "#b8b8b8",
+
+            "fontFamily": "Courier New",
+            "titleBarIcon": "fa-fire",
+            "titleBarText": "HESTIA",
+
+            "gridColumns": 10,
+            "gridRows": 6,
+
+            "gridPadding": "20px",
+            "gapSize": "10px",
+            "borderRadius": "5px",
+            "outlines": true,
+            "shadow": false,
         },
         "custom_presets": {
         }

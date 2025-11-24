@@ -150,8 +150,8 @@
 
 /* Grouping Styles */
 .settings-group {
-    margin-bottom: 25px;
-    padding-bottom: 15px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
 }
 .settings-group:last-of-type {
     border-bottom: none;
@@ -161,7 +161,7 @@
 .settings-group h4 {
     font-size: 1.1rem;
     color: var(--text-main);
-    border-bottom: 2px solid var(--border-dim);
+    border-bottom: 1px solid var(--border-dim);
     padding-bottom: 8px;
     margin-bottom: 15px;
     margin-top: 0;
@@ -183,7 +183,7 @@
     align-items: center;
 }
 .setting-label {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
 }
 .setting-controls {
@@ -221,15 +221,15 @@
 
 /* Standard Text Inputs (For Titles, Fonts, Preset Name) */
 input[type="text"].setting-val {
-    width: 200px; /* Uniform width */
     background: var(--bg-surface);
     border: 1px solid var(--border-dim);
     color: var(--text-main);
-    padding: 6px 10px;
+    padding: 4px 10px;
     text-align: left;
     font-size: 0.85rem;
     border-radius: 4px;
     font-family: inherit;
+    height: 30px;
 }
 input[type="text"].setting-val:focus {
     outline: none;
@@ -247,10 +247,12 @@ select.setting-select {
     background: var(--bg-surface);
     color: var(--text-main);
     border: 1px solid var(--border-dim);
-    padding: 6px 10px;
+    padding: 4px 10px;
     width: 100%;
     cursor: pointer;
     border-radius: 4px;
+    font-family: var(--font-family);
+    height: 30px;
 }
 
 /* Control Alignment Fix (Palette Row) */
@@ -312,7 +314,7 @@ input:checked + .slider:before { transform: translateX(22px); background-color: 
 
 /* Custom Color Preview Swatch */
 .color-preview {
-    width: 25px; height: 25px;
+    width: 30px; height: 30px;
     border: 1px solid var(--border-dim);
     border-radius: 4px;
     cursor: pointer;
@@ -340,11 +342,11 @@ input:checked + .slider:before { transform: translateX(22px); background-color: 
     gap: 20px;
 }
 .color-group-wrapper h5 {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
     color: var(--brand-secondary);
     margin-bottom: 10px;
-    border-bottom: 1px solid var(--border-dim);
+    /*border-bottom: 1px solid var(--border-dim);*/
     padding-bottom: 4px;
 }
 

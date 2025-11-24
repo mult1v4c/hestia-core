@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadConfig() {
         let savedTheme = {};
         let savedCustomPresets = {};
-        let savedApps = [];
+        let savedApps = null;
         let initialConfig = window.HESTIA_CONFIG_DEFAULT; // Default loaded from index.html
 
         try {
@@ -53,9 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const localAppsJson = localStorage.getItem('hestia_apps');
             if (localAppsJson) {
                 savedApps = JSON.parse(localAppsJson);
-            } else {
-                // If no local save, we rely on the apps hardcoded in index.html for the initial view.
-                savedApps = [];
             }
 
         } catch (e) {
@@ -67,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             theme: savedTheme,
             custom_presets: savedCustomPresets,
-            apps: savedApps.length > 0 ? savedApps : window.HESTIA_APPS_DEFAULT || []
+            apps: savedApps !== null ? savedApps : window.HESTIA_APPS_DEFAULT || []
         };
     }
 
@@ -157,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showModal(
             "Reset Dashboard",
             `<p>Are you sure you want to wipe **ALL** saved themes, presets, and app layout? This cannot be undone.</p>`,
-            "Reset Now",
+            `<i class="fa-solid fa-check"></i>`,
             () => {
                 localStorage.removeItem('hestia_theme');
                 localStorage.removeItem('hestia_apps');
@@ -203,18 +200,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 gridLines.appendChild(div);
             }
         } else {
-            // If apps exist in localStorage, rebuild the entire DOM
             rebuildDashboardFromConfig(currentConfig.apps);
         }
 
-
-        // 2. Setup Preset Selector Options
         renderPresetOptions();
-
-        // 3. Apply Saved Config
         applyTheme(currentConfig.theme);
+        sanitizeAppLayout();
 
-        // 4. Configure Palette Defaults for Reset Buttons
         if (currentConfig.theme.activePalette && availablePalettes[currentConfig.theme.activePalette]) {
             setPaletteDefaults(availablePalettes[currentConfig.theme.activePalette]);
             if(presetSelect) presetSelect.value = "base16:" + currentConfig.theme.activePalette;
@@ -355,6 +347,8 @@ document.addEventListener('DOMContentLoaded', () => {
         root.style.setProperty('--gap-size', toPx(theme.gapSize));
         root.style.setProperty('--radius', toPx(theme.borderRadius));
         root.style.setProperty('--grid-padding', toPx(theme.gridPadding));
+        root.style.setProperty('--grid-cols', theme.gridColumns || 10);
+        root.style.setProperty('--grid-rows', theme.gridRows || 6);
 
         // Font Family
         const font = theme.fontFamily || "Courier New";
@@ -368,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else dashboard.classList.remove('show-outlines');
 
         // Header Info
-        const iconClass = theme.titleBarIcon || "fa-server";
+        const iconClass = theme.titleBarIcon || "fa-fire";
         if(headerTitle) headerTitle.innerHTML = `<i class="fa-solid ${iconClass}"></i> ${theme.titleBarText}`;
     }
 
@@ -377,14 +371,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
 
     window.toggleSettingsPanel = () => {
-        settingsPanel.classList.toggle('active');
-        closePopover();
-    };
+            const isClosing = settingsPanel.classList.contains('active');
 
-    window.saveAndCloseSettings = () => {
-        saveTheme(); // Call the specific theme saver
-        settingsPanel.classList.remove('active');
-        closePopover();
+            settingsPanel.classList.toggle('active');
+            closePopover();
+
+            if (isClosing) {
+                showToast("Dashboard settings saved!", "success");
+            }
     };
 
     window.updateSetting = (key, value, isCheckbox = false) => {
@@ -398,7 +392,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const input = document.getElementById(`input-${key}`);
         checkResetVisibility(input, key);
 
-        // Settings are saved on close, but the visual change is immediate
+        if(key === 'gridColumns' || key === 'gridRows') {
+            redrawGridLines();
+            sanitizeAppLayout();
+        }
+
+        saveTheme();
     };
 
     function syncInputs(theme) {
@@ -561,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isEditMode = false;
             dashboard.classList.remove('edit-mode');
 
-            editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit';
+            editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
             editBtn.title = 'Edit Mode';
             editBtn.classList.add('btn-primary');
 
@@ -593,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const originalIcon = editBtn.innerHTML;
             editBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
             setTimeout(() => {
-                 if(!isEditMode) editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit';
+                 if(!isEditMode) editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
                  else editBtn.innerHTML = originalIcon;
             }, 1500);
             showToast("App layout saved!", "success");
@@ -612,25 +611,36 @@ document.addEventListener('DOMContentLoaded', () => {
         // Use localStorage instead of server-side API
         try {
             localStorage.setItem('hestia_theme', JSON.stringify(payload));
-            showToast("Theme settings saved!", "success");
+        //    showToast("Theme settings saved!", "success");
         } catch(err) {
             showToast("Error saving theme: " + err, "error");
         }
     }
 
-    // --- APP CRUD LOGIC (Unchanged, uses standard DOM manipulation) ---
+    // --- APP CRUD LOGIC ---
     window.promptNewApp = () => {
         if(!isEditMode) return;
         const html = `<label style="color:var(--text-muted);">Name</label><input type="text" id="newAppName" class="modal-input" placeholder="Static App">`;
-        showModal("Add App", html, "Create", () => {
+        showModal("Add App", html, `<i class="fa-solid fa-check"></i>`, () => {
             const input = document.getElementById('newAppName');
             if(input) window.createApp(input.value.trim() || "Static App");
         });
     };
     window.createApp = (name) => {
-        // Collision detection and finding a new spot (1x1)
+        const cols = parseInt(currentConfig.theme.gridColumns) || 10;
+        const rows = parseInt(currentConfig.theme.gridRows) || 6;
+
         let x = 1, y = 1, found = false;
-        for(let r=1; r<=6; r++) { for(let c=1; c<=10; c++) { if(!checkCollision(null, c, r, 1, 1)) { x = c; y = r; found = true; break; } } if(found) break; }
+
+        // Loop using dynamic rows/cols
+        for(let r=1; r<=rows; r++) {
+            for(let c=1; c<=cols; c++) {
+                if(!checkCollision(null, c, r, 1, 1)) {
+                    x = c; y = r; found = true; break;
+                }
+            }
+            if(found) break;
+        }
         if (!found) { window.showToast("Dashboard full!", "error"); return; }
 
         const div = document.createElement('div');
@@ -642,11 +652,13 @@ document.addEventListener('DOMContentLoaded', () => {
         dashboard.appendChild(div);
         window.showToast(`${name} added!`, "success");
     };
+
     window.confirmDelete = (e, btn) => {
         e.stopPropagation(); if(!isEditMode) return;
         const card = btn.closest('.app-card');
-        showModal("Delete App", `<p>Remove <strong>${card.querySelector('.card-title').innerText}</strong>?</p>`, "Delete", () => { card.remove(); window.showToast("App deleted", "success"); });
+        showModal("Delete App", `<p>Remove <strong>${card.querySelector('.card-title').innerText}</strong>?</p>`, `<i class="fa-solid fa-trash"></i>`, () => { card.remove(); window.showToast("App deleted", "success"); });
     };
+
     window.renameApp = (el) => {
         if(!isEditMode) return;
         el.contentEditable = true; el.focus();
@@ -655,23 +667,118 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener('blur', save); el.addEventListener('keydown', key);
     };
 
-    // --- GRID HELPERS (Unchanged) ---
+    // --- GRID HELPERS ---
     function applyGrid(el, x, y, w, h) { el.style.gridColumn = `${x} / span ${w}`; el.style.gridRow = `${y} / span ${h}`; }
+
     function checkCollision(targetEl, x, y, w, h) {
-        const allApps = document.querySelectorAll('.app-card');
         const tL = x, tR = x + w, tT = y, tB = y + h;
-        for (let app of allApps) {
-            if (app === targetEl) continue;
-            const ax = parseInt(app.dataset.x, 10)||0, ay = parseInt(app.dataset.y, 10)||0, aw = parseInt(app.dataset.cols, 10)||1, ah = parseInt(app.dataset.rows, 10)||1;
-            if (tL < ax + aw && tR > ax && tT < ay + ah && tB > ay) return true;
+        for (let app of cachedApps) {
+            if (app.el === targetEl) continue;
+            if (tL < app.x + app.cols && tR > app.x && tT < app.y + app.rows && tB > app.y) {
+                return true;
+            }
         }
         return false;
+    }
+
+    function redrawGridLines() {
+        if(!gridLines) return;
+        gridLines.innerHTML = '';
+        const cols = parseInt(currentConfig.theme.gridColumns) || 10;
+        const rows = parseInt(currentConfig.theme.gridRows) || 6;
+        const count = cols * rows;
+
+        for(let i=0; i<count; i++) {
+            const div = document.createElement('div');
+            div.className = 'grid-cell';
+            gridLines.appendChild(div);
+        }
+    }
+
+    function sanitizeAppLayout() {
+        const cols = parseInt(currentConfig.theme.gridColumns) || 10;
+        const rows = parseInt(currentConfig.theme.gridRows) || 6;
+        const allApps = document.querySelectorAll('.app-card');
+        let movedCount = 0;
+
+        // 1. First Pass: Clamp everyone to the new grid limits
+        allApps.forEach(card => {
+            let x = parseInt(card.dataset.x) || 1;
+            let y = parseInt(card.dataset.y) || 1;
+            let w = parseInt(card.dataset.cols) || 1;
+            let h = parseInt(card.dataset.rows) || 1;
+
+            let needsUpdate = false;
+
+            // Clamp X and Y (Move app in if it's too far right/down)
+            if (x > cols) { x = cols; needsUpdate = true; }
+            if (y > rows) { y = rows; needsUpdate = true; }
+
+            // Clamp Width and Height (Shrink app if it spills over edge)
+            // Formula: (Start + Size - 1) must be <= Limit
+            if (x + w - 1 > cols) { w = Math.max(1, cols - x + 1); needsUpdate = true; }
+            if (y + h - 1 > rows) { h = Math.max(1, rows - y + 1); needsUpdate = true; }
+
+            if (needsUpdate) {
+                // Apply new values
+                card.dataset.x = x;
+                card.dataset.y = y;
+                card.dataset.cols = w;
+                card.dataset.rows = h;
+                applyGrid(card, x, y, w, h);
+
+                // Update visual "3x2" label
+                const meta = card.querySelector('.card-meta');
+                if(meta) meta.innerText = `${w}x${h}`;
+
+                movedCount++;
+            }
+        });
+
+        // 2. Second Pass: Check for overlaps to warn the user
+        let hasOverlap = false;
+
+        // Create a temporary cache of the NEW positions
+        const tempCache = Array.from(allApps).map(app => ({
+            el: app,
+            x: parseInt(app.dataset.x),
+            y: parseInt(app.dataset.y),
+            cols: parseInt(app.dataset.cols),
+            rows: parseInt(app.dataset.rows)
+        }));
+
+        for (let i = 0; i < tempCache.length; i++) {
+            const A = tempCache[i];
+            for (let j = i + 1; j < tempCache.length; j++) {
+                const B = tempCache[j];
+
+                // Simple Rectangle Intersection Test
+                if (A.x < B.x + B.cols &&
+                    A.x + A.cols > B.x &&
+                    A.y < B.y + B.rows &&
+                    A.y + A.rows > B.y) {
+                        hasOverlap = true;
+                        break;
+                }
+            }
+            if(hasOverlap) break;
+        }
+
+        // 3. Save and Notify
+        if (movedCount > 0) {
+            saveApps(); // Save the new clamped positions
+            if (hasOverlap) {
+                showToast("Grid resized. Some apps may be overlapping.", "warning");
+            } else {
+                showToast("Grid resized. Apps adjusted to fit.", "success");
+            }
+        }
     }
 
     // --- MODAL LOGIC (Unchanged) ---
     function showModal(title, html, confirmText, action) {
         if(!modalOverlay) return;
-        modalTitle.innerText = title; modalContent.innerHTML = html; modalConfirm.innerText = confirmText; modalAction = action;
+        modalTitle.innerText = title; modalContent.innerHTML = html; modalConfirm.innerHTML = confirmText; modalAction = action;
         modalOverlay.classList.add('active');
         const input = modalContent.querySelector('input'); if(input) setTimeout(() => input.focus(), 50);
     }
@@ -680,29 +787,73 @@ document.addEventListener('DOMContentLoaded', () => {
     if(modalConfirm) modalConfirm.onclick = () => { if(modalAction) modalAction(); closeModal(); };
 
     // --- DRAG AND DROP LOGIC (Unchanged) ---
-    let actItem, initX, initY, sGX, sGY, sC, sR, mode;
+    let actItem, initX, initY, sGX, sGY, sC, sR, mode, gridRect, cachedApps = [];
     dashboard.addEventListener('mousedown', e => {
         if(!isEditMode || e.target.closest('.delete-btn') || e.target.isContentEditable) return;
         if(e.target.classList.contains('resize-handle')) { mode='resize'; actItem=e.target.parentElement; }
         else if(e.target.closest('.app-card')) { mode='move'; actItem=e.target.closest('.app-card'); }
         else return;
         e.preventDefault(); initX = e.clientX; initY = e.clientY;
+
+        gridRect = gridLines.getBoundingClientRect();
+
+        cachedApps = Array.from(document.querySelectorAll('.app-card')).map(app => ({
+            el: app,
+            x: parseInt(app.dataset.x, 10)||0,
+            y: parseInt(app.dataset.y, 10)||0,
+            cols: parseInt(app.dataset.cols, 10)||1,
+            rows: parseInt(app.dataset.rows, 10)||1
+        }));
+
         sGX = parseInt(actItem.dataset.x, 10); sGY = parseInt(actItem.dataset.y, 10); sC = parseInt(actItem.dataset.cols, 10); sR = parseInt(actItem.dataset.rows, 10);
         actItem.classList.add('moving');
         document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+
     });
     function onMove(e) {
         if(!actItem) return;
-        const r = gridLines.getBoundingClientRect(); const cW = r.width/10; const cH = r.height/6;
-        const gDx = Math.round((e.clientX-initX)/cW); const gDy = Math.round((e.clientY-initY)/cH);
-        if(mode==='move') {
-            let nX=sGX+gDx, nY=sGY+gDy;
-            if(nX<1) nX=1; if(nY<1) nY=1; if(nX+sC>11) nX=11-sC; if(nY+sR>7) nY=7-sR;
-            if(!checkCollision(actItem, nX, nY, sC, sR)) { applyGrid(actItem, nX, nY, sC, sR); actItem.classList.remove('collision'); } else actItem.classList.add('collision');
-        } else {
-            let nC=sC+gDx, nR=sR+gDy;
-            if(nC<1) nC=1; if(nR<1) nR=1; if(sGX+nC>11) nC=11-sGX; if(sGY+nR>7) nR=7-sGY;
-            if(!checkCollision(actItem, sGX, sGY, nC, nR)) { applyGrid(actItem, sGX, sGY, nC, nR); actItem.classList.remove('collision'); } else actItem.classList.add('collision');
+
+        const cols = parseInt(currentConfig.theme.gridColumns) || 10;
+        const rows = parseInt(currentConfig.theme.gridRows) || 6;
+
+        // Use cached gridRect instead of getBoundingClientRect()
+        const cW = gridRect.width / cols;
+        const cH = gridRect.height / rows;
+
+        const gDx = Math.round((e.clientX - initX) / cW);
+        const gDy = Math.round((e.clientY - initY) / cH);
+
+        const maxC = cols + 1;
+        const maxR = rows + 1;
+
+        if(mode === 'move') {
+            let nX = sGX + gDx, nY = sGY + gDy;
+
+            if(nX < 1) nX = 1;
+            if(nY < 1) nY = 1;
+            if(nX + sC > maxC) nX = maxC - sC;
+            if(nY + sR > maxR) nY = maxR - sR;
+
+            if(!checkCollision(actItem, nX, nY, sC, sR)) {
+                applyGrid(actItem, nX, nY, sC, sR);
+                actItem.classList.remove('collision');
+            } else {
+                actItem.classList.add('collision');
+            }
+        } else { // resize mode
+            let nC = sC + gDx, nR = sR + gDy;
+
+            if(nC < 1) nC = 1;
+            if(nR < 1) nR = 1;
+            if(sGX + nC > maxC) nC = maxC - sGX;
+            if(sGY + nR > maxR) nR = maxR - sGY;
+
+            if(!checkCollision(actItem, sGX, sGY, nC, nR)) {
+                applyGrid(actItem, sGX, sGY, nC, nR);
+                actItem.classList.remove('collision');
+            } else {
+                actItem.classList.add('collision');
+            }
         }
     }
     function onUp() {
@@ -727,9 +878,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Global click listener for closing settings/popover when clicking outside
     document.addEventListener('click', (e) => {
-        if (settingsPanel && settingsPanel.classList.contains('active') && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target) && (!palettePopover || !palettePopover.contains(e.target)) && !e.target.closest('.color-preview')) { settingsPanel.classList.remove('active'); closePopover(); }
+        if (settingsPanel && settingsPanel.classList.contains('active') && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target) && (!palettePopover || !palettePopover.contains(e.target)) && !e.target.closest('.color-preview')) { settingsPanel.classList.remove('active'); closePopover(); showToast("Dashboard settings saved!", "success");}
         if(palettePopover && palettePopover.classList.contains('active') && !palettePopover.contains(e.target) && !e.target.closest('.color-preview')) closePopover();
     });
+
     if(modalOverlay) modalOverlay.addEventListener('mousedown', (e) => { if (e.target === modalOverlay) closeModal(); });
 
     // Start application

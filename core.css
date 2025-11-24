@@ -28,8 +28,9 @@
     --bg-highlight: var(--base02);  /* Hover states, Active inputs */
 
     /* Borders & Separators */
-    --border-dim:    var(--base02); /* Subtle grid lines */
-    --border-bright: var(--base03); /* Active borders, Input focus */
+    --border-dim:        var(--base02); /* Subtle grid lines */
+    --border-bright:     var(--base03); /* Active borders, Input focus */
+    --border-edit-mode : var(--base07); /* Border for Edit Mode */
 
     /* Typography */
     --text-main:    var(--base05);  /* Primary Content */
@@ -85,14 +86,14 @@ body {
     background: var(--bg-surface);
     border: 1px solid var(--border-dim);
     color: var(--text-main);
-    height: 36px;
+    height: 30px;
     padding: 0 10px;
     display: flex; justify-content: center; align-items: center; gap: 8px;
     cursor: pointer;
     border-radius: 4px;
     transition: all 0.2s;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     white-space: nowrap;
 }
 .btn:hover:not(:disabled) {
@@ -115,6 +116,7 @@ body {
 }
 
 .btn-icon {
-    width: 36px;
+    width: 30px;
+    height: 30px;
     padding: 0;
 }

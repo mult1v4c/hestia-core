@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hestia</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="core.css">
+    <link rel="stylesheet" href="layout.css">
+    <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+
+    <header>
+        <h1 id="headerTitle"><i class="fa-solid fa-server"></i> HESTIA</h1>
+        <div class="toolbar">
+            <button class="btn" id="settingsBtn" onclick="toggleSettingsPanel()">
+                <i class="fa-solid fa-sliders"></i> Settings
+            </button>
+            <button class="btn" id="addBtn" onclick="promptNewApp()" disabled>
+                <i class="fa-solid fa-plus"></i> Add
+            </button>
+            <button class="btn btn-primary" id="editBtn" onclick="toggleEditMode()">
+                <i class="fa-solid fa-pen-to-square"></i> Edit
+            </button>
+        </div>
+    </header>
+
+    <div class="dashboard-container" id="dashboard">
+        <div class="grid-lines" id="gridLines"></div>
+    </div>
+
+    <div class="settings-panel" id="settingsPanel">
+
+        <div class="settings-modal-header">
+            <h3>Dashboard Settings</h3>
+            <button class="btn btn-primary" onclick="saveAndCloseSettings()" title="Save and Close">
+                <i class="fa-solid fa-floppy-disk"></i> Save & Close
+            </button>
+        </div>
+
+        <div class="settings-content">
+
+            <div class="settings-group">
+                <h4>Configuration Management</h4>
+                <div class="general-grid-container" style="grid-template-columns: 1fr;">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn" onclick="exportConfig()" title="Download current theme and layout">
+                            <i class="fa-solid fa-download"></i> Export
+                        </button>
+                        <button class="btn" onclick="document.getElementById('file-import').click()" title="Load theme and layout from a file">
+                            <i class="fa-solid fa-upload"></i> Import
+                        </button>
+                        <input type="file" id="file-import" accept=".json" onchange="importConfig(event)" style="display: none;">
+                        <button class="btn btn-error" onclick="confirmReset()" title="Wipes all saved settings and returns to the hardcoded defaults">
+                            <i class="fa-solid fa-rotate"></i> Reset All Defaults
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h4>General</h4>
+                <div class="general-grid-container">
+                    <div>
+                        <div class="setting-row">
+                            <span class="setting-label">Title</span>
+                            <div class="setting-controls">
+                                <input type="text" class="setting-val" id="input-titleBarText" value="HESTIA" data-default="HESTIA" onchange="updateSetting('titleBarText', this.value)">
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-titleBarText" onclick="resetSetting('titleBarText')"></i>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Icon (FontAwesome)</span>
+                            <div class="setting-controls">
+                                <input type="text" class="setting-val" id="input-titleBarIcon" value="fa-server" data-default="fa-server" onchange="updateSetting('titleBarIcon', this.value)">
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-titleBarIcon" onclick="resetSetting('titleBarIcon')"></i>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Font Family</span>
+                            <div class="setting-controls">
+                                <input type="text" class="setting-val" id="input-fontFamily" value="Iosevka" data-default="Courier New" onchange="updateSetting('fontFamily', this.value)">
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-fontFamily" onclick="resetSetting('fontFamily')"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="setting-row">
+                            <span class="setting-label">Gap Size</span>
+                            <div class="setting-controls">
+                                <input type="text" class="setting-val" style="width:100px; text-align:right;" id="input-gapSize" value="5px" data-default="10px" onchange="updateSetting('gapSize', this.value)">
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-gapSize" onclick="resetSetting('gapSize')"></i>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Padding</span>
+                            <div class="setting-controls">
+                                <input type="text" class="setting-val" style="width:100px; text-align:right;" id="input-gridPadding" value="5px" data-default="20px" onchange="updateSetting('gridPadding', this.value)">
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-gridPadding" onclick="resetSetting('gridPadding')"></i>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Radius</span>
+                            <div class="setting-controls">
+                                <input type="text" class="setting-val" style="width:100px; text-align:right;" id="input-borderRadius" value="5px" data-default="5px" onchange="updateSetting('borderRadius', this.value)">
+                                <i class="fa-solid fa-rotate-left reset-icon" id="reset-borderRadius" onclick="resetSetting('borderRadius')"></i>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; justify-content: space-between; gap: 40px; margin-top: 10px;">
+                            <div class="setting-row" style="flex-grow:1; margin-bottom: 0;">
+                                <span class="setting-label">Shadows</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="input-shadow" data-default="true" onchange="updateSetting('shadow', this.checked, true)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="setting-row" style="flex-grow:1; margin-bottom: 0;">
+                                <span class="setting-label">Outlines</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="input-outlines" data-default="true" onchange="updateSetting('outlines', this.checked, true)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h4>Themes & Colors</h4>
+
+                <div class="setting-row" style="margin-bottom: 20px;">
+                    <div class="setting-controls" style="width:100%; display:flex; gap:10px; align-items: center;">
+                        <select class="setting-select" id="presetSelect" onchange="applyPreset(this.value);" style="flex:1;">
+                            </select>
+                        <input type="text" id="newThemeName" class="setting-val" style="flex:1;" placeholder="Name current theme...">
+                        <button class="btn btn-icon" onclick="saveCustomPreset()" title="Save Preset">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="colors-grid-container">
+
+                    <div class="color-column">
+                        <div class="color-group-wrapper">
+                            <h5>Main Colors</h5>
+                            <div class="setting-row"><span class="setting-label">Canvas</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-bgCanvas" style="background:#181818" onclick="openPicker('bgCanvas')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-bgCanvas" onclick="resetSetting('bgCanvas')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Card</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-bgSurface" style="background:#282828" onclick="openPicker('bgSurface')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-bgSurface" onclick="resetSetting('bgSurface')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Highlight</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-bgHighlight" style="background:#383838" onclick="openPicker('bgHighlight')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-bgHighlight" onclick="resetSetting('bgHighlight')"></i></div>
+                            </div>
+                        </div>
+
+                        <div class="color-group-wrapper">
+                            <h5>Borders</h5>
+                            <div class="setting-row"><span class="setting-label">Dim</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-borderDim" style="background:#383838" onclick="openPicker('borderDim')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-borderDim" onclick="resetSetting('borderDim')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Bright</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-borderBright" style="background:#585858" onclick="openPicker('borderBright')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-borderBright" onclick="resetSetting('borderBright')"></i></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="color-column">
+                        <div class="color-group-wrapper">
+                            <h5>Font Colors</h5>
+                            <div class="setting-row"><span class="setting-label">Main</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-textMain" style="background:#d8d8d8" onclick="openPicker('textMain')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-textMain" onclick="resetSetting('textMain')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Muted</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-textMuted" style="background:#b8b8b8" onclick="openPicker('textMuted')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-textMuted" onclick="resetSetting('textMuted')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Faint</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-textFaint" style="background:#585858" onclick="openPicker('textFaint')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-textFaint" onclick="resetSetting('textFaint')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Inverse</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-textInverse" style="background:#181818" onclick="openPicker('textInverse')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-textInverse" onclick="resetSetting('textInverse')"></i></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="color-column">
+                        <div class="color-group-wrapper">
+                            <h5>Branding</h5>
+                            <div class="setting-row"><span class="setting-label">Primary</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-brandPrimary" style="background:#a1b56c" onclick="openPicker('brandPrimary')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-brandPrimary" onclick="resetSetting('brandPrimary')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Secondary</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-brandSecondary" style="background:#7cafc2" onclick="openPicker('brandSecondary')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-brandSecondary" onclick="resetSetting('brandSecondary')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Tertiary</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-brandTertiary" style="background:#ba8baf" onclick="openPicker('brandTertiary')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-brandTertiary" onclick="resetSetting('brandTertiary')"></i></div>
+                            </div>
+                        </div>
+
+                        <div class="color-group-wrapper">
+                            <h5>Status</h5>
+                            <div class="setting-row"><span class="setting-label">Error</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-statusError" style="background:#ab4642" onclick="openPicker('statusError')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-statusError" onclick="resetSetting('statusError')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Warning</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-statusWarning" style="background:#dc9656" onclick="openPicker('statusWarning')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-statusWarning" onclick="resetSetting('statusWarning')"></i></div>
+                            </div>
+                            <div class="setting-row"><span class="setting-label">Success</span>
+                                <div class="setting-controls"><div class="color-preview" id="preview-statusSuccess" style="background:#a1b56c" onclick="openPicker('statusSuccess')"></div><i class="fa-solid fa-rotate-left reset-icon" id="reset-statusSuccess" onclick="resetSetting('statusSuccess')"></i></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <div class="settings-footer">
+            Hestia-core v0.1.0 &nbsp; <i class="fa-solid fa-heart" style="color:var(--status-error);"></i> &nbsp; <a href="#" target="_blank"><i class="fa-brands fa-github"></i></a>
+        </div>
+
+        <input type="color" class="hidden-native-picker" id="input-bgCanvas" value="#181818" onchange="updateSetting('bgCanvas', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-bgSurface" value="#282828" onchange="updateSetting('bgSurface', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-bgHighlight" value="#383838" onchange="updateSetting('bgHighlight', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-borderDim" value="#383838" onchange="updateSetting('borderDim', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-borderBright" value="#585858" onchange="updateSetting('borderBright', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-textMain" value="#d8d8d8" onchange="updateSetting('textMain', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-textMuted" value="#b8b8b8" onchange="updateSetting('textMuted', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-textFaint" value="#585858" onchange="updateSetting('textFaint', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-textInverse" value="#181818" onchange="updateSetting('textInverse', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-brandPrimary" value="#a1b56c" onchange="updateSetting('brandPrimary', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-brandSecondary" value="#7cafc2" onchange="updateSetting('brandSecondary', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-brandTertiary" value="#ba8baf" onchange="updateSetting('brandTertiary', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-statusError" value="#ab4642" onchange="updateSetting('statusError', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-statusWarning" value="#dc9656" onchange="updateSetting('statusWarning', this.value)">
+        <input type="color" class="hidden-native-picker" id="input-statusSuccess" value="#a1b56c" onchange="updateSetting('statusSuccess', this.value)">
+    </div>
+
+    <div id="palettePopover" class="palette-popover"></div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-box">
+            <div class="modal-header" id="modalTitle">Title</div>
+            <div class="modal-body" id="modalContent">Content</div>
+            <div class="modal-footer">
+                <button class="btn" id="modalCancel">Cancel</button>
+                <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    window.HESTIA_CONFIG_DEFAULT = {
+        "theme": {
+            "activePalette": "default-dark",
+            "bgCanvas": "#181818", "bgHighlight": "#383838", "bgSurface": "#282828",
+            "borderBright": "#585858", "borderDim": "#383838",
+            "borderRadius": "5px", "brandPrimary": "#a1b56c", "brandSecondary": "#7cafc2", "brandTertiary": "#ba8baf",
+            "fontFamily": "Iosevka", "gapSize": "5px", "gridPadding": "5px", "outlines": false, "shadow": false,
+            "statusError": "#ab4642", "statusSuccess": "#a1b56c", "statusWarning": "#dc9656",
+            "textFaint": "#585858", "textInverse": "#181818", "textMain": "#d8d8d8", "textMuted": "#b8b8b8",
+            "titleBarIcon": "fa-server", "titleBarText": "HESTIA"
+        },
+        "custom_presets": {
+        }
+    };
+
+    window.HESTIA_APPS_DEFAULT = [
+        { "id": 1001, "name": "System Monitor", "type": "static", "x": 1, "y": 1, "cols": 3, "rows": 4 },
+        { "id": 1002, "name": "Quick Launch Links", "type": "static", "x": 4, "y": 1, "cols": 4, "rows": 2 },
+        { "id": 1003, "name": "Calendar / Time", "type": "static", "x": 8, "y": 1, "cols": 3, "rows": 2 },
+
+        { "id": 1004, "name": "Current Weather", "type": "static", "x": 4, "y": 3, "cols": 2, "rows": 2 },
+        { "id": 1005, "name": "To-Do List", "type": "static", "x": 6, "y": 3, "cols": 5, "rows": 2 },
+
+        { "id": 1006, "name": "Project Status", "type": "static", "x": 1, "y": 5, "cols": 5, "rows": 2 },
+        { "id": 1007, "name": "Notes / Scratchpad", "type": "static", "x": 6, "y": 5, "cols": 5, "rows": 2 }
+    ];
+</script>
+    <script src="palettes.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

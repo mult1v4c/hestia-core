@@ -1,0 +1,391 @@
+/* -------------------------------------------------------------------------- */
+/* 1. TOAST NOTIFICATIONS                                                     */
+/* -------------------------------------------------------------------------- */
+
+.toast-container {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999; /* Highest z-index */
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    color: var(--text-main);
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    display: flex; align-items: center; gap: 12px;
+    min-width: 300px;
+    pointer-events: auto;
+    transform: translateY(-150%);
+    animation: slideIn 0.3s ease-out forwards;
+}
+
+.toast.error { border-color: var(--status-error); }
+.toast.error i { color: var(--status-error); }
+.toast.success i { color: var(--status-success); }
+
+.toast.slide-out {
+    animation: slideOut 0.3s ease-in forwards;
+}
+
+@keyframes slideIn {
+    0% { transform: translateY(-150%); }
+    100% { transform: translateY(0); }
+}
+
+@keyframes slideOut {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-150%); }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* 2. MODAL BASE (Used by App/Delete/etc. prompts)                            */
+/* -------------------------------------------------------------------------- */
+
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    display: none; justify-content: center; align-items: center;
+    z-index: 3000;
+}
+.modal-overlay.active { display: flex; }
+
+.modal-box {
+    background: var(--bg-canvas);
+    border: 1px solid var(--border-dim);
+    border-radius: 8px;
+    width: 400px; padding: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    position: relative; color: var(--text-main);
+}
+
+.modal-header {
+    font-size: 1.2rem;
+    color: var(--brand-primary);
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--border-dim);
+    padding-bottom: 10px;
+}
+.modal-body { margin-bottom: 20px; color: var(--text-main); }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+.modal-input {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    color: var(--text-main);
+    padding: 8px;
+    border-radius: 4px;
+    font-family: inherit;
+    margin-top: 5px;
+}
+.modal-input:focus { outline: none; border-color: var(--brand-primary); }
+
+
+/* -------------------------------------------------------------------------- */
+/* 3. SETTINGS PANEL (The Command Center)                                     */
+/* -------------------------------------------------------------------------- */
+
+.settings-panel {
+    /* Centering Magic */
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+
+    /* Size & Shape */
+    width: 700px;
+    max-width: 95vw;
+    max-height: 85vh;
+    overflow-y: hidden; /* Scroll handled by settings-content */
+
+    /* Visuals */
+    background: var(--bg-canvas);
+    border: 1px solid var(--border-dim);
+    border-radius: 8px;
+    z-index: 2000;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+
+    /* Layout */
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    padding: 0;
+}
+.settings-panel.active {
+    display: flex;
+}
+
+/* Modal Header */
+.settings-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 25px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-dim);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+.settings-modal-header h3 {
+    font-size: 1.2rem;
+    color: var(--brand-primary);
+    margin: 0;
+    letter-spacing: 1px;
+    font-weight: bold;
+}
+
+/* Scrollable Content Area */
+.settings-content {
+    padding: 25px;
+    overflow-y: auto;
+}
+
+/* Grouping Styles */
+.settings-group {
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+}
+.settings-group:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+.settings-group h4 {
+    font-size: 1.1rem;
+    color: var(--text-main);
+    border-bottom: 2px solid var(--border-dim);
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+    margin-top: 0;
+    letter-spacing: 1px;
+}
+
+/* General Area Grid (2 columns) */
+.general-grid-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 40px;
+}
+
+/* Single Setting Row */
+.setting-row {
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.setting-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+.setting-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+}
+
+/* Footer */
+.settings-footer {
+    padding: 15px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-dim);
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    display: flex; justify-content: center; align-items: center; gap: 10px;
+}
+.settings-footer a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.2s;
+    font-size: 1rem;
+}
+.settings-footer a:hover {
+    color: var(--brand-primary);
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* 4. FORM ELEMENTS & CONTROLS (Inputs, Selects, Toggles)                     */
+/* -------------------------------------------------------------------------- */
+
+/* Standard Text Inputs (For Titles, Fonts, Preset Name) */
+input[type="text"].setting-val {
+    width: 200px; /* Uniform width */
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    color: var(--text-main);
+    padding: 6px 10px;
+    text-align: left;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    font-family: inherit;
+}
+input[type="text"].setting-val:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+}
+
+/* Specialized width for dimension inputs (Gap, Padding, Radius) */
+.setting-controls input[type="text"][style*="width:100px"] {
+    width: 100px !important;
+    text-align: right !important;
+}
+
+/* Select Dropdowns */
+select.setting-select {
+    background: var(--bg-surface);
+    color: var(--text-main);
+    border: 1px solid var(--border-dim);
+    padding: 6px 10px;
+    width: 100%;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+/* Control Alignment Fix (Palette Row) */
+.settings-group .setting-controls > .setting-select,
+.settings-group .setting-controls > input[type="text"].setting-val {
+    box-sizing: border-box;
+}
+
+/* Reset Icon */
+.reset-icon {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, color 0.2s;
+}
+.reset-icon.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.reset-icon.visible:hover {
+    color: var(--brand-primary);
+}
+
+/* --- TOGGLE SWITCH (Replaces Checkbox) --- */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 22px;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--bg-highlight); /* Off state */
+    transition: .3s;
+    border-radius: 22px;
+    border: 1px solid var(--border-dim);
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px; width: 16px;
+    left: 2px; bottom: 2px;
+    background-color: var(--text-muted);
+    transition: .3s;
+    border-radius: 50%;
+}
+input:checked + .slider { background-color: var(--brand-primary); border-color: var(--brand-primary); }
+input:checked + .slider:before { transform: translateX(22px); background-color: var(--bg-canvas); }
+
+
+/* -------------------------------------------------------------------------- */
+/* 5. COLOR PICKER & POPOVER                                                  */
+/* -------------------------------------------------------------------------- */
+
+/* Custom Color Preview Swatch */
+.color-preview {
+    width: 25px; height: 25px;
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.2s;
+    background-color: #000;
+}
+.color-preview:hover {
+    transform: scale(1.1);
+    border-color: var(--brand-primary);
+}
+/* IMPORTANT: The native color input element is hidden but used for data */
+.hidden-native-picker {
+    display: none;
+}
+
+/* Color Grid Layout */
+.colors-grid-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+}
+.color-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.color-group-wrapper h5 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--brand-secondary);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border-dim);
+    padding-bottom: 4px;
+}
+
+/* Palette Popover */
+.palette-popover {
+    display: none;
+    position: absolute;
+    background: var(--bg-canvas);
+    border: 1px solid var(--border-dim);
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.8);
+    z-index: 8000;
+    width: 180px;
+}
+.palette-popover.active {
+    display: block;
+}
+.popover-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    margin-bottom: 10px;
+}
+.palette-swatch {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 3px;
+    border: 1px solid var(--border-dim);
+    cursor: pointer;
+}
+.palette-swatch:hover {
+    border-color: var(--text-main);
+    transform: scale(1.1);
+}
+.popover-footer {
+    display: flex;
+    justify-content: center;
+}
+.popover-footer button {
+    font-size: 0.7rem;
+    height: 24px;
+    width: 100%;
+}

@@ -1,0 +1,120 @@
+/* -------------------------------------------------------------------------- */
+/* 1. CORE VARIABLES (COLOR PALETTE & GEOMETRY)                               */
+/* -------------------------------------------------------------------------- */
+
+:root {
+    /* 1. RAW PALETTE LAYER (The "Ink") - These are populated by JS */
+    --base00: #181818; /* Default Background */
+    --base01: #282828; /* Lighter Background (Status bars, Cards) */
+    --base02: #383838; /* Selection Background */
+    --base03: #585858; /* Comments, Invisibles, Line Highlighting */
+    --base04: #b8b8b8; /* Dark Foreground (Status bars) */
+    --base05: #d8d8d8; /* Default Foreground, Caret, Delimiters */
+    --base06: #e8e8e8; /* Light Foreground (Not often used) */
+    --base07: #f8f8f8; /* Light Background (Not often used) */
+    --base08: #ab4642; /* Red (Errors, Variables) */
+    --base09: #dc9656; /* Orange (Integers, Constants) */
+    --base0A: #f7ca88; /* Yellow (Classes, Search) */
+    --base0B: #a1b56c; /* Green (Strings, Success) */
+    --base0C: #86c1b9; /* Cyan (Support, Regex) */
+    --base0D: #7cafc2; /* Blue (Functions, Methods) */
+    --base0E: #ba8baf; /* Purple (Keywords, Selectors) */
+    --base0F: #a16946; /* Brown (Deprecated) */
+
+    /* 2. SEMANTIC FUNCTIONAL LAYER (The "Meaning") - Mapped by JS */
+    /* Surfaces */
+    --bg-canvas:    var(--base00);  /* Main App Background */
+    --bg-surface:   var(--base01);  /* Cards, Headers, Modals */
+    --bg-highlight: var(--base02);  /* Hover states, Active inputs */
+
+    /* Borders & Separators */
+    --border-dim:    var(--base02); /* Subtle grid lines */
+    --border-bright: var(--base03); /* Active borders, Input focus */
+
+    /* Typography */
+    --text-main:    var(--base05);  /* Primary Content */
+    --text-muted:   var(--base04);  /* Metadata, labels, disabled text */
+    --text-faint:   var(--base03);  /* Very subtle placeholders */
+    --text-inverse: var(--base00);  /* Text on top of bright accents */
+
+    /* Branding & Accents */
+    --brand-primary:   var(--base0B); /* Main Action Color */
+    --brand-secondary: var(--base0D); /* Links, Info, Secondary Buttons */
+    --brand-tertiary:  var(--base0E); /* Special Highlights */
+
+    /* Status Indicators */
+    --status-error:   var(--base08);
+    --status-warning: var(--base09);
+    --status-success: var(--base0B);
+
+    /* Geometry & Font (Controlled by Settings) */
+    --gap-size: 10px;
+    --radius: 5px;
+    --grid-padding: 20px;
+    --font-main-stack: 'Courier New', Courier, monospace;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* 2. BASE RESET & GLOBAL STYLES                                              */
+/* -------------------------------------------------------------------------- */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+body {
+    background-color: var(--bg-canvas);
+    color: var(--text-main);
+    font-family: var(--font-main-stack);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: background-color 0.3s, color 0.3s, font-family 0.3s;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 3. BUTTONS (Common UI Element)                                             */
+/* -------------------------------------------------------------------------- */
+
+.btn {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    color: var(--text-main);
+    height: 36px;
+    padding: 0 10px;
+    display: flex; justify-content: center; align-items: center; gap: 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-family: inherit;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+    background: var(--bg-highlight);
+    border-color: var(--brand-primary);
+}
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    color: var(--text-muted);
+}
+
+.btn-primary {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+}
+.btn-primary:hover {
+    background: var(--brand-primary);
+    color: var(--bg-canvas);
+}
+
+.btn-icon {
+    width: 36px;
+    padding: 0;
+}

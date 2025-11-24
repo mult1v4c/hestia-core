@@ -1,0 +1,712 @@
+// script.js (Modified for static/local storage)
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("HestiaHUD: DOM Loaded. Initializing...");
+
+    // =========================================================================
+    // 1. DOM ELEMENTS AND GLOBAL STATE
+    // =========================================================================
+
+    // --- DOM ELEMENTS ---
+    const dashboard = document.getElementById('dashboard');
+    let gridLines = document.getElementById('gridLines'); // Initialized here, updated in init/rebuild
+    const editBtn = document.getElementById('editBtn');
+    const addBtn = document.getElementById('addBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const headerTitle = document.getElementById('headerTitle');
+    const presetSelect = document.getElementById('presetSelect');
+    const palettePopover = document.getElementById('palettePopover');
+
+    // Modal Elements
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalContent = document.getElementById('modalContent');
+    const modalCancel = document.getElementById('modalCancel');
+    const modalConfirm = document.getElementById('modalConfirm');
+
+    // --- STATE ---
+    let isEditMode = false;
+    // Data passed from the server (OLD), now uses initial config and local storage
+    let availablePalettes = window.HESTIA_PALETTES || {}; // Loaded from palette.js
+
+    // --- NEW: Load Config from localStorage or initial default data ---
+    function loadConfig() {
+        let savedTheme = {};
+        let savedCustomPresets = {};
+        let savedApps = [];
+        let initialConfig = window.HESTIA_CONFIG_DEFAULT; // Default loaded from index.html
+
+        try {
+            // Load theme/presets from localStorage
+            const localThemeJson = localStorage.getItem('hestia_theme');
+            if (localThemeJson) {
+                const localData = JSON.parse(localThemeJson);
+                savedTheme = localData.theme || initialConfig.theme;
+                savedCustomPresets = localData.custom_presets || initialConfig.custom_presets;
+            } else {
+                savedTheme = initialConfig.theme;
+                savedCustomPresets = initialConfig.custom_presets;
+            }
+
+            // Load app layout from localStorage
+            const localAppsJson = localStorage.getItem('hestia_apps');
+            if (localAppsJson) {
+                savedApps = JSON.parse(localAppsJson);
+            } else {
+                // If no local save, we rely on the apps hardcoded in index.html for the initial view.
+                savedApps = [];
+            }
+
+        } catch (e) {
+            console.error("Error loading config from localStorage:", e);
+            savedTheme = initialConfig.theme;
+            savedCustomPresets = initialConfig.custom_presets;
+        }
+
+        return {
+            theme: savedTheme,
+            custom_presets: savedCustomPresets,
+            apps: savedApps.length > 0 ? savedApps : window.HESTIA_APPS_DEFAULT || []
+        };
+    }
+
+    let currentConfig = loadConfig();
+    let activePopoverKey = null;
+    let modalAction = null;
+
+
+    // =========================================================================
+    // 2. CORE HELPER UTILITIES
+    // =========================================================================
+
+    window.formatColor = (c) => {
+        if(!c) return '#000000';
+        return c.startsWith('#') ? c : '#' + c;
+    };
+
+    window.toPx = (val) => {
+        if (val === undefined || val === null || val === '') return '0px';
+        const str = String(val).trim();
+        return /^[0-9.]+$/.test(str) ? str + 'px' : str;
+    };
+
+    window.showToast = (message, type = 'success') => {
+        const container = document.getElementById('toast-container');
+        if(!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i> <span>${message}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('slide-out');
+            toast.addEventListener('animationend', () => toast.remove());
+        }, 3000);
+    };
+
+    window.exportConfig = () => {
+        // 1. Gather current theme/presets (hestia_theme) and apps (hestia_apps)
+        const exportData = {
+            theme: JSON.parse(localStorage.getItem('hestia_theme')) || { theme: currentConfig.theme, custom_presets: currentConfig.custom_presets },
+            apps: JSON.parse(localStorage.getItem('hestia_apps')) || currentConfig.apps
+        };
+
+        const json = JSON.stringify(exportData, null, 4);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+
+        a.href = url;
+        a.download = 'hestia-core_config.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast("Configuration exported!", "success");
+    };
+
+    window.importConfig = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+
+                if (data.theme && data.apps) {
+                    // 1. Save theme and presets to localStorage
+                    localStorage.setItem('hestia_theme', JSON.stringify(data.theme));
+
+                    // 2. Save app layout to localStorage
+                    localStorage.setItem('hestia_apps', JSON.stringify(data.apps));
+
+                    showToast("Configuration imported. Reloading...", "success");
+                    setTimeout(() => window.location.reload(), 500);
+                } else {
+                    throw new Error("Invalid Hestia-Core configuration format.");
+                }
+            } catch (error) {
+                showToast("Error importing config: " + error.message, "error");
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    window.confirmReset = () => {
+        showModal(
+            "Reset Dashboard",
+            `<p>Are you sure you want to wipe **ALL** saved themes, presets, and app layout? This cannot be undone.</p>`,
+            "Reset Now",
+            () => {
+                localStorage.removeItem('hestia_theme');
+                localStorage.removeItem('hestia_apps');
+                showToast("Dashboard reset. Reloading...", "warning");
+                setTimeout(() => window.location.reload(), 500);
+            }
+        );
+    };
+
+    // =========================================================================
+    // 3. APP LIFECYCLE & INITIALIZATION
+    // =========================================================================
+
+    function rebuildDashboardFromConfig(appsArray) {
+        dashboard.innerHTML = '<div class="grid-lines" id="gridLines"></div>'; // Clear and keep grid lines
+        appsArray.forEach(app => {
+            const div = document.createElement('div');
+            div.className = 'app-card'; div.id = `app-${app.id}`;
+            div.dataset.id = app.id; div.dataset.x = app.x; div.dataset.y = app.y;
+            div.dataset.cols = app.cols; div.dataset.rows = app.rows; div.dataset.type = app.type;
+            applyGrid(div, app.x, app.y, app.cols, app.rows);
+            div.innerHTML = `<div class="card-title" ondblclick="renameApp(this)">${app.name}</div><div class="card-meta">${app.cols}x${app.rows}</div><div class="resize-handle"></div><div class="delete-btn" onclick="confirmDelete(event, this)"><i class="fa-solid fa-trash"></i></div>`;
+            dashboard.appendChild(div);
+        });
+        // Re-get gridLines element since we cleared the dashboard innerHTML
+        gridLines = document.getElementById('gridLines');
+        // Re-draw grid lines in the new gridLines element
+        for(let i=0; i<60; i++) {
+            const div = document.createElement('div');
+            div.className = 'grid-cell';
+            gridLines.appendChild(div);
+        }
+    }
+
+
+    function init() {
+        // 1. Draw Grid Lines (Always draw the grid lines container)
+        gridLines.innerHTML = '';
+        for(let i=0; i<60; i++) {
+            const div = document.createElement('div');
+            div.className = 'grid-cell';
+            gridLines.appendChild(div);
+        }
+
+        // 2. Setup Preset Selector Options
+        renderPresetOptions();
+
+        // 3. Apply Saved Config and Draw Dashboard
+        applyTheme(currentConfig.theme);
+        // Always call rebuildDashboardFromConfig to draw the apps,
+        // whether from localStorage or the HESTIA_APPS_DEFAULT fallback.
+        rebuildDashboardFromConfig(currentConfig.apps);
+
+        // 4. Configure Palette Defaults for Reset Buttons
+        if (currentConfig.theme.activePalette && availablePalettes[currentConfig.theme.activePalette]) {
+            setPaletteDefaults(availablePalettes[currentConfig.theme.activePalette]);
+            if(presetSelect) presetSelect.value = "base16:" + currentConfig.theme.activePalette;
+        }
+    }
+
+    // =========================================================================
+    // 4. THEME & COLOR LOGIC
+    // =========================================================================
+
+    function renderPresetOptions() {
+        if(!presetSelect) return;
+        presetSelect.innerHTML = '<option value="" disabled selected>Select a Theme...</option>';
+
+        const groupBase16 = document.createElement('optgroup');
+        groupBase16.label = "Base16 Palettes";
+        Object.keys(availablePalettes).sort().forEach(slug => {
+            const palette = availablePalettes[slug];
+            const opt = document.createElement('option');
+            opt.value = "base16:" + slug;
+            opt.innerText = palette.name;
+            groupBase16.appendChild(opt);
+        });
+        presetSelect.appendChild(groupBase16);
+
+        const groupCustom = document.createElement('optgroup');
+        groupCustom.label = "Custom Presets";
+        const customPresets = currentConfig.custom_presets || {};
+        for (const key of Object.keys(customPresets)) {
+            const opt = document.createElement('option');
+            opt.value = "custom:" + key;
+            opt.innerText = key;
+            groupCustom.appendChild(opt);
+        }
+        if (groupCustom.children.length > 0) presetSelect.appendChild(groupCustom);
+    }
+
+    window.applyPreset = (value) => {
+        if(!value) return;
+        const [type, name] = value.split(':');
+
+        if (type === 'base16') {
+            const palette = availablePalettes[name];
+            if (palette) {
+                applyBase16Theme(palette); // Overwrites config
+                currentConfig.theme.activePalette = name;
+                saveTheme();
+            }
+        } else if (type === 'custom') {
+            const themeData = currentConfig.custom_presets[name];
+            if (themeData) {
+                // Ensure we don't accidentally wipe out non-color settings (e.g., gapSize)
+                Object.assign(currentConfig.theme, themeData);
+                applyTheme(currentConfig.theme);
+                currentConfig.theme.activePalette = null;
+                saveTheme();
+            }
+        }
+        presetSelect.value = value;
+    };
+
+    function setPaletteDefaults(palette) {
+        // Sets the `data-default` attribute on inputs for the reset button
+        const mapping = {
+            'bgCanvas':     'base00', 'bgSurface':    'base01', 'bgHighlight':  'base02',
+            'borderDim':    'base02', 'borderBright': 'base03',
+            'textMain':     'base05', 'textMuted':    'base04', 'textFaint':    'base03', 'textInverse':  'base00',
+            'brandPrimary': 'base0B', 'brandSecondary':'base0D', 'brandTertiary': 'base0E',
+            'statusError':   'base08', 'statusWarning': 'base09', 'statusSuccess': 'base0B'
+        };
+
+        for (const [semanticKey, baseKey] of Object.entries(mapping)) {
+            if (palette[baseKey]) {
+                updateInputDefault(semanticKey, formatColor(palette[baseKey]));
+            }
+        }
+        // Ensure UI reflects modified state immediately
+        syncInputs(currentConfig.theme);
+    }
+
+    function applyBase16Theme(palette) {
+        // 1. Set Defaults for Reset Buttons
+        setPaletteDefaults(palette);
+
+        // 2. Overwrite Current Config with Palette Colors
+        const mapping = {
+            'bgCanvas': 'base00', 'bgSurface': 'base01', 'bgHighlight': 'base02',
+            'borderDim': 'base02', 'borderBright': 'base03',
+            'textMain': 'base05', 'textMuted': 'base04', 'textFaint': 'base03', 'textInverse': 'base00',
+            'brandPrimary': 'base0B', 'brandSecondary': 'base0D', 'brandTertiary': 'base0E',
+            'statusError': 'base08', 'statusWarning': 'base09', 'statusSuccess': 'base0B'
+        };
+
+        for (const [semanticKey, baseKey] of Object.entries(mapping)) {
+            if (palette[baseKey]) {
+                currentConfig.theme[semanticKey] = formatColor(palette[baseKey]);
+            }
+        }
+
+        // 3. Apply CSS
+        applyTheme(currentConfig.theme);
+    }
+
+    function applyTheme(theme) {
+        // Applies all colors and geometry to the root CSS variables
+        const root = document.documentElement;
+
+        // 1. Apply Semantic Color Variables
+        const colorProps = [
+            'bgCanvas', 'bgSurface', 'bgHighlight',
+            'borderDim', 'borderBright',
+            'textMain', 'textMuted', 'textFaint', 'textInverse',
+            'brandPrimary', 'brandSecondary', 'brandTertiary',
+            'statusError', 'statusWarning', 'statusSuccess'
+        ];
+
+        colorProps.forEach(key => {
+            if(theme[key]) {
+                // Convert camelCase key to --kebab-case var
+                const cssVar = '--' + key.replace(/([A-Z])/g, "-$1").toLowerCase();
+                root.style.setProperty(cssVar, theme[key]);
+            }
+        });
+
+        // 2. Apply Layout Settings (Geometry, Toggles, Header Text)
+        applyLayoutSettings();
+
+        // 3. Sync UI Inputs
+        syncInputs(theme);
+    }
+
+    function applyLayoutSettings() {
+        // Applies all non-color theme settings
+        const theme = currentConfig.theme;
+        const root = document.documentElement;
+
+        // Geometry
+        root.style.setProperty('--gap-size', toPx(theme.gapSize));
+        root.style.setProperty('--radius', toPx(theme.borderRadius));
+        root.style.setProperty('--grid-padding', toPx(theme.gridPadding));
+
+        // Font Family
+        const font = theme.fontFamily || "Courier New";
+        root.style.setProperty('--font-main-stack', font);
+
+        // Toggles
+        if (theme.shadow) document.body.classList.add('shadow-on');
+        else document.body.classList.remove('shadow-on');
+
+        if (theme.outlines) dashboard.classList.add('show-outlines');
+        else dashboard.classList.remove('show-outlines');
+
+        // Header Info
+        const iconClass = theme.titleBarIcon || "fa-server";
+        if(headerTitle) headerTitle.innerHTML = `<i class="fa-solid ${iconClass}"></i> ${theme.titleBarText}`;
+    }
+
+    // =========================================================================
+    // 5. SETTINGS PANEL & UI INTERACTIONS
+    // =========================================================================
+
+    window.toggleSettingsPanel = () => {
+        settingsPanel.classList.toggle('active');
+        closePopover();
+    };
+
+    window.saveAndCloseSettings = () => {
+        saveTheme(); // Call the specific theme saver
+        settingsPanel.classList.remove('active');
+        closePopover();
+    };
+
+    window.updateSetting = (key, value, isCheckbox = false) => {
+        // Auto-append 'px' for geometry inputs if it's numeric
+        if (!isCheckbox && !isNaN(value) && value.trim() !== '' && (key.includes('Size') || key.includes('Padding') || key.includes('Radius'))) {
+             value += 'px';
+        }
+        currentConfig.theme[key] = value;
+        applyTheme(currentConfig.theme);
+
+        const input = document.getElementById(`input-${key}`);
+        checkResetVisibility(input, key);
+
+        // Settings are saved on close, but the visual change is immediate
+    };
+
+    function syncInputs(theme) {
+        // Updates all form fields and color previews to match the current theme state
+        for (const [key, value] of Object.entries(theme)) {
+            const input = document.getElementById(`input-${key}`);
+            if (input) {
+                // Handle the case where the hardcoded value in HTML doesn't match the new theme data.
+                // This ensures the inputs reflect the loaded config (localstorage) or default.
+                if(input.type === 'checkbox') {
+                    // Only update if theme property is explicitly set, otherwise trust the hardcoded/default
+                    if (value !== undefined) input.checked = value;
+                } else {
+                    input.value = value;
+                }
+
+                // Update Color Preview Box
+                const preview = document.getElementById(`preview-${key}`);
+                if(preview) preview.style.backgroundColor = value;
+
+                checkResetVisibility(input, key);
+            }
+        }
+    }
+
+    window.resetSetting = (key) => {
+        const input = document.getElementById(`input-${key}`);
+        const def = input.getAttribute('data-default');
+        if(input.type === 'checkbox') {
+            input.checked = (def === 'true');
+            window.updateSetting(key, (def === 'true'), true);
+        } else {
+            input.value = def;
+            window.updateSetting(key, def);
+        }
+    };
+
+    function updateInputDefault(key, color) {
+        // Used by Base16 logic to set the 'reset to palette' color
+        const input = document.getElementById(`input-${key}`);
+        if(input) input.setAttribute('data-default', formatColor(color));
+    }
+
+    function checkResetVisibility(input, key) {
+        // Shows/hides the reset icon based on whether the input value differs from its default
+        const defaultVal = input.getAttribute('data-default');
+        const resetBtn = document.getElementById(`reset-${key}`);
+        if(!resetBtn || !defaultVal) return;
+
+        let isDifferent = false;
+        if(input.type === 'checkbox') isDifferent = (input.checked !== (defaultVal === 'true'));
+        else isDifferent = (input.value.toLowerCase() !== defaultVal.toLowerCase());
+
+        if(isDifferent) resetBtn.classList.add('visible');
+        else resetBtn.classList.remove('visible');
+    }
+
+    window.saveCustomPreset = () => {
+        const nameInput = document.getElementById('newThemeName');
+        const name = nameInput.value.trim();
+        if (!name) { showToast("Please enter a theme name.", "error"); return; }
+
+        // Only save semantic colors (not layout properties like gapSize)
+        const currentColors = {};
+        const props = [
+            'bgCanvas', 'bgSurface', 'bgHighlight', 'borderDim', 'borderBright',
+            'textMain', 'textMuted', 'textFaint', 'textInverse',
+            'brandPrimary', 'brandSecondary', 'brandTertiary',
+            'statusError', 'statusWarning', 'statusSuccess'
+        ];
+        props.forEach(p => currentColors[p] = currentConfig.theme[p]);
+
+        if (!currentConfig.custom_presets) currentConfig.custom_presets = {};
+        currentConfig.custom_presets[name] = currentColors;
+
+        renderPresetOptions();
+        presetSelect.value = "custom:" + name;
+        nameInput.value = "";
+        saveTheme();
+        showToast("Custom preset saved!", "success");
+    };
+
+    // --- COLOR PICKER & POPOVER LOGIC ---
+    window.openPicker = (key) => {
+        activePopoverKey = key;
+        const preview = document.getElementById(`preview-${key}`);
+        if(!preview) return;
+
+        const rect = preview.getBoundingClientRect();
+        const panelRect = settingsPanel.getBoundingClientRect();
+
+        // Position the popover near the color swatch, adjusted for center modal
+        palettePopover.style.top = (rect.bottom - panelRect.top - 20) + 'px';
+        palettePopover.style.left = (rect.left - panelRect.left + 490) + 'px';
+
+        let colors = [];
+        const activePal = currentConfig.theme.activePalette;
+        if(activePal && availablePalettes[activePal]) {
+            const p = availablePalettes[activePal];
+            ['base00','base01','base02','base03','base04','base05','base06','base07',
+             'base08','base09','base0A','base0B','base0C','base0D','base0E','base0F'].forEach(k => {
+                 if(p[k]) colors.push(formatColor(p[k]));
+             });
+        } else {
+            // If no base16 palette is active (custom mode), immediately open native picker
+            document.getElementById(`input-${key}`).click();
+            return;
+        }
+
+        let html = '<div class="popover-grid">';
+        colors.forEach(c => {
+            html += `<div class="palette-swatch" style="background:${c}" onclick="selectPopoverColor('${c}')"></div>`;
+        });
+        html += '</div><div class="popover-footer"><button class="btn" onclick="openNativePicker()">Custom...</button></div>';
+        palettePopover.innerHTML = html;
+        palettePopover.classList.add('active');
+    };
+
+    // =========================================================================
+    // 6. DASHBOARD & EDIT MODE LOGIC (UPDATED FOR LOCAL STORAGE)
+    // =========================================================================
+
+    window.toggleEditMode = () => {
+        if (!isEditMode) {
+            isEditMode = true;
+            dashboard.classList.add('edit-mode');
+
+            editBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i>';
+            editBtn.title = 'Save Layout';
+            editBtn.classList.remove('btn-primary');
+            editBtn.style.borderColor = "var(--brand-primary)";
+
+            addBtn.disabled = false;
+
+            window.getSelection().removeAllRanges();
+        } else {
+            saveApps(); // Saves to local storage
+            isEditMode = false;
+            dashboard.classList.remove('edit-mode');
+
+            editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit';
+            editBtn.title = 'Edit Mode';
+            editBtn.classList.add('btn-primary');
+
+            addBtn.disabled = true;
+        }
+    };
+
+    function saveApps() {
+        // 1. Scrape DOM for App State
+        const apps = [];
+        document.querySelectorAll('.app-card').forEach(card => {
+            apps.push({
+                id: parseInt(card.dataset.id),
+                name: card.querySelector('.card-title').innerText,
+                type: card.dataset.type || "static",
+                x: parseInt(card.dataset.x),
+                y: parseInt(card.dataset.y),
+                cols: parseInt(card.dataset.cols),
+                rows: parseInt(card.dataset.rows)
+            });
+        });
+        currentConfig.apps = apps;
+
+        // 2. Use localStorage instead of server-side API
+        try {
+            localStorage.setItem('hestia_apps', JSON.stringify(apps));
+
+            // Visual feedback on the edit button
+            const originalIcon = editBtn.innerHTML;
+            editBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+            setTimeout(() => {
+                 if(!isEditMode) editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit';
+                 else editBtn.innerHTML = originalIcon;
+            }, 1500);
+            showToast("App layout saved!", "success");
+        } catch(err) {
+            showToast("Error saving apps. " + err, "error");
+        }
+    }
+
+    function saveTheme() {
+        // Prepare payload: Theme + Custom Presets (No Apps)
+        const payload = {
+            theme: currentConfig.theme,
+            custom_presets: currentConfig.custom_presets || {}
+        };
+
+        // Use localStorage instead of server-side API
+        try {
+            localStorage.setItem('hestia_theme', JSON.stringify(payload));
+            showToast("Theme settings saved!", "success");
+        } catch(err) {
+            showToast("Error saving theme: " + err, "error");
+        }
+    }
+
+    // --- APP CRUD LOGIC (Unchanged, uses standard DOM manipulation) ---
+    window.promptNewApp = () => {
+        if(!isEditMode) return;
+        const html = `<label style="color:var(--text-muted);">Name</label><input type="text" id="newAppName" class="modal-input" placeholder="Static App">`;
+        showModal("Add App", html, "Create", () => {
+            const input = document.getElementById('newAppName');
+            if(input) window.createApp(input.value.trim() || "Static App");
+        });
+    };
+    window.createApp = (name) => {
+        // Collision detection and finding a new spot (1x1)
+        let x = 1, y = 1, found = false;
+        for(let r=1; r<=6; r++) { for(let c=1; c<=10; c++) { if(!checkCollision(null, c, r, 1, 1)) { x = c; y = r; found = true; break; } } if(found) break; }
+        if (!found) { window.showToast("Dashboard full!", "error"); return; }
+
+        const div = document.createElement('div');
+        const newId = Date.now();
+        div.className = 'app-card'; div.id = `app-${newId}`;
+        div.dataset.id = newId; div.dataset.x = x; div.dataset.y = y; div.dataset.cols = 1; div.dataset.rows = 1; div.dataset.type = "static";
+        applyGrid(div, x, y, 1, 1);
+        div.innerHTML = `<div class="card-title" ondblclick="renameApp(this)">${name}</div><div class="card-meta">1x1</div><div class="resize-handle"></div><div class="delete-btn" onclick="confirmDelete(event, this)"><i class="fa-solid fa-trash"></i></div>`;
+        dashboard.appendChild(div);
+        window.showToast(`${name} added!`, "success");
+    };
+    window.confirmDelete = (e, btn) => {
+        e.stopPropagation(); if(!isEditMode) return;
+        const card = btn.closest('.app-card');
+        showModal("Delete App", `<p>Remove <strong>${card.querySelector('.card-title').innerText}</strong>?</p>`, "Delete", () => { card.remove(); window.showToast("App deleted", "success"); });
+    };
+    window.renameApp = (el) => {
+        if(!isEditMode) return;
+        el.contentEditable = true; el.focus();
+        const save = () => { el.contentEditable = false; el.removeEventListener('blur', save); el.removeEventListener('keydown', key); };
+        const key = (e) => { if(e.key === 'Enter') { e.preventDefault(); save(); } };
+        el.addEventListener('blur', save); el.addEventListener('keydown', key);
+    };
+
+    // --- GRID HELPERS (Unchanged) ---
+    function applyGrid(el, x, y, w, h) { el.style.gridColumn = `${x} / span ${w}`; el.style.gridRow = `${y} / span ${h}`; }
+    function checkCollision(targetEl, x, y, w, h) {
+        const allApps = document.querySelectorAll('.app-card');
+        const tL = x, tR = x + w, tT = y, tB = y + h;
+        for (let app of allApps) {
+            if (app === targetEl) continue;
+            const ax = parseInt(app.dataset.x, 10)||0, ay = parseInt(app.dataset.y, 10)||0, aw = parseInt(app.dataset.cols, 10)||1, ah = parseInt(app.dataset.rows, 10)||1;
+            if (tL < ax + aw && tR > ax && tT < ay + ah && tB > ay) return true;
+        }
+        return false;
+    }
+
+    // --- MODAL LOGIC (Unchanged) ---
+    function showModal(title, html, confirmText, action) {
+        if(!modalOverlay) return;
+        modalTitle.innerText = title; modalContent.innerHTML = html; modalConfirm.innerText = confirmText; modalAction = action;
+        modalOverlay.classList.add('active');
+        const input = modalContent.querySelector('input'); if(input) setTimeout(() => input.focus(), 50);
+    }
+    function closeModal() { if(modalOverlay) modalOverlay.classList.remove('active'); modalAction = null; }
+    if(modalCancel) modalCancel.onclick = closeModal;
+    if(modalConfirm) modalConfirm.onclick = () => { if(modalAction) modalAction(); closeModal(); };
+
+    // --- DRAG AND DROP LOGIC (Unchanged) ---
+    let actItem, initX, initY, sGX, sGY, sC, sR, mode;
+    dashboard.addEventListener('mousedown', e => {
+        if(!isEditMode || e.target.closest('.delete-btn') || e.target.isContentEditable) return;
+        if(e.target.classList.contains('resize-handle')) { mode='resize'; actItem=e.target.parentElement; }
+        else if(e.target.closest('.app-card')) { mode='move'; actItem=e.target.closest('.app-card'); }
+        else return;
+        e.preventDefault(); initX = e.clientX; initY = e.clientY;
+        sGX = parseInt(actItem.dataset.x, 10); sGY = parseInt(actItem.dataset.y, 10); sC = parseInt(actItem.dataset.cols, 10); sR = parseInt(actItem.dataset.rows, 10);
+        actItem.classList.add('moving');
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    });
+    function onMove(e) {
+        if(!actItem) return;
+        const r = gridLines.getBoundingClientRect(); const cW = r.width/10; const cH = r.height/6;
+        const gDx = Math.round((e.clientX-initX)/cW); const gDy = Math.round((e.clientY-initY)/cH);
+        if(mode==='move') {
+            let nX=sGX+gDx, nY=sGY+gDy;
+            if(nX<1) nX=1; if(nY<1) nY=1; if(nX+sC>11) nX=11-sC; if(nY+sR>7) nY=7-sR;
+            if(!checkCollision(actItem, nX, nY, sC, sR)) { applyGrid(actItem, nX, nY, sC, sR); actItem.classList.remove('collision'); } else actItem.classList.add('collision');
+        } else {
+            let nC=sC+gDx, nR=sR+gDy;
+            if(nC<1) nC=1; if(nR<1) nR=1; if(sGX+nC>11) nC=11-sGX; if(sGY+nR>7) nR=7-sGY;
+            if(!checkCollision(actItem, sGX, sGY, nC, nR)) { applyGrid(actItem, sGX, sGY, nC, nR); actItem.classList.remove('collision'); } else actItem.classList.add('collision');
+        }
+    }
+    function onUp() {
+        if(actItem) {
+            actItem.classList.remove('moving', 'collision');
+            // The following lines assume gridColumn/gridRow style properties are set by applyGrid in a way that includes 'start' and 'span'
+            // We need to parse the values. The applyGrid function sets: el.style.gridColumn = `${x} / span ${w}`;
+            const colsSpan = actItem.style.gridColumn.split('span ')[1];
+            const rowsSpan = actItem.style.gridRow.split('span ')[1];
+            const x = actItem.style.gridColumnStart;
+            const y = actItem.style.gridRowStart;
+
+            actItem.dataset.x = x;
+            actItem.dataset.y = y;
+            actItem.dataset.cols = colsSpan;
+            actItem.dataset.rows = rowsSpan;
+
+            const meta = actItem.querySelector('.card-meta'); if(meta) meta.innerText = `${actItem.dataset.cols}x${actItem.dataset.rows}`;
+        }
+        actItem=null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+    }
+
+    // Global click listener for closing settings/popover when clicking outside
+    document.addEventListener('click', (e) => {
+        if (settingsPanel && settingsPanel.classList.contains('active') && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target) && (!palettePopover || !palettePopover.contains(e.target)) && !e.target.closest('.color-preview')) { settingsPanel.classList.remove('active'); closePopover(); }
+        if(palettePopover && palettePopover.classList.contains('active') && !palettePopover.contains(e.target) && !e.target.closest('.color-preview')) closePopover();
+    });
+    if(modalOverlay) modalOverlay.addEventListener('mousedown', (e) => { if (e.target === modalOverlay) closeModal(); });
+
+    // Start application
+    init();
+});

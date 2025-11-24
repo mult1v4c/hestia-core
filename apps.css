@@ -1,0 +1,49 @@
+/* Common Content Area */
+.app-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+
+/* 1. Link App (Big Icon + Text) */
+.app-type-link {
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: var(--text-main);
+    height: 100%;
+    width: 100%;
+    transition: color 0.2s;
+}
+.app-type-link:hover { color: var(--brand-primary); }
+.app-type-link i { font-size: 2.5rem; margin-bottom: 10px; }
+.app-type-link span { font-size: 1rem; font-weight: bold; text-align: center; }
+
+/* 2. Text App (Header + Body) */
+.app-type-text {
+    padding: 10px;
+    align-items: flex-start;
+    color: var(--text-muted);
+}
+.app-type-text h4 {
+    margin: 0 0 5px 0;
+    color: var(--text-main);
+    font-size: 1.1rem;
+}
+.app-type-text p {
+    margin: 0;
+    font-size: 0.9rem;
+    white-space: pre-wrap; /* Preserves newlines */
+    line-height: 1.4;
+}
+
+/* 3. Image App (Full Coverage) */
+.app-type-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: calc(var(--radius) - 2px);
+}

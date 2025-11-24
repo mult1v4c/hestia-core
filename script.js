@@ -165,6 +165,16 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     };
 
+    window.toggleFormFields = (type) => {
+        const urlField = document.getElementById('field-url');
+        const iconField = document.getElementById('field-icon');
+        const contentField = document.getElementById('field-content');
+
+        if(urlField) urlField.style.display = (type === 'text') ? 'none' : 'block';
+        if(iconField) iconField.style.display = (type === 'link') ? 'block' : 'none';
+        if(contentField) contentField.style.display = (type === 'text') ? 'block' : 'none';
+    };
+
     // =========================================================================
     // 3. APP LIFECYCLE & INITIALIZATION
     // =========================================================================
@@ -177,12 +187,17 @@ document.addEventListener('DOMContentLoaded', () => {
             div.dataset.id = app.id; div.dataset.x = app.x; div.dataset.y = app.y;
             div.dataset.cols = app.cols; div.dataset.rows = app.rows; div.dataset.type = app.type;
             applyGrid(div, app.x, app.y, app.cols, app.rows);
-            div.innerHTML = `<div class="card-title" ondblclick="renameApp(this)">${app.name}</div>
-                 <div class="card-meta">${app.cols}x${app.rows}</div>
-                 <div class="resize-handle"></div>
-                 <div class="delete-btn" onclick="confirmDelete(event, this)" title="Delete App">
+
+            const innerHTML = getAppContentHTML(app);
+
+            div.innerHTML = `
+                ${innerHTML}
+                <div class="resize-handle"></div>
+                <div class="card-meta">${app.cols}x${app.rows}</div>
+                <div class="delete-btn" onclick="confirmDelete(event, this)" title="Delete App">
                     <i class="fa-solid fa-trash"></i>
-                 </div>`;
+                </div>
+            `;
             dashboard.appendChild(div);
         });
         // Re-get gridLines element since we cleared the dashboard innerHTML
@@ -632,10 +647,52 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- APP CRUD LOGIC ---
     window.promptNewApp = () => {
         if(!isEditMode) return;
-        const html = `<label style="color:var(--text-muted);">Name</label><input type="text" id="newAppName" class="modal-input" placeholder="Static App">`;
-        showModal("Add App", html, `<i class="fa-solid fa-check"></i>`, () => {
-            const input = document.getElementById('newAppName');
-            if(input) window.createApp(input.value.trim() || "Static App");
+
+        const html = `
+            <div class="form-group" style="display:flex; flex-direction:column; gap:10px;">
+                <input type="text" id="appName" class="modal-input" placeholder="App Name (e.g. Google)">
+
+                <select id="appSubtype" class="modal-input" onchange="toggleFormFields(this.value)">
+                    <option value="link">Link Button</option>
+                    <option value="text">Text Note</option>
+                    <option value="image">Image Frame</option>
+                </select>
+
+                <div id="field-url" class="dynamic-field">
+                    <input type="text" id="appUrl" class="modal-input" placeholder="URL (https://...)">
+                </div>
+
+                <div id="field-icon" class="dynamic-field">
+                    <input type="text" id="appIcon" class="modal-input" placeholder="Icon (e.g. fa-google)">
+                </div>
+
+                <div id="field-content" class="dynamic-field" style="display:none;">
+                    <textarea id="appContent" class="modal-input" rows="3" placeholder="Type your note here..."></textarea>
+                </div>
+            </div>
+        `;
+
+        showModal("Add Static App", html, `<i class="fa-solid fa-plus"></i> Add`, () => {
+            const name = document.getElementById('appName').value.trim() || "Untitled";
+            const subtype = document.getElementById('appSubtype').value;
+
+            const newAppData = {
+                type: 'static',
+                subtype: subtype,
+                name: name,
+                data: {}
+            };
+
+            if(subtype === 'link') {
+                newAppData.data.url = document.getElementById('appUrl').value;
+                newAppData.data.icon = document.getElementById('appIcon').value || 'fa-link';
+            } else if (subtype === 'image') {
+                newAppData.data.url = document.getElementById('appUrl').value;
+            } else if (subtype === 'text') {
+                newAppData.data.content = document.getElementById('appContent').value;
+            }
+
+            window.createApp(newAppData);
         });
     };
 
@@ -663,22 +720,90 @@ document.addEventListener('DOMContentLoaded', () => {
             if(found) break;
         }
 
-        if (!found) { window.showToast("Dashboard full!", "error"); return; }
+    if (!found) { window.showToast("Dashboard full!", "error"); return; }
 
-        const div = document.createElement('div');
-        const newId = Date.now();
-        div.className = 'app-card'; div.id = `app-${newId}`;
-        div.dataset.id = newId; div.dataset.x = x; div.dataset.y = y; div.dataset.cols = 1; div.dataset.rows = 1; div.dataset.type = "static";
-        applyGrid(div, x, y, 1, 1);
-        div.innerHTML = `<div class="card-title" ondblclick="renameApp(this)">${name}</div>
-                 <div class="card-meta">1x1</div>
-                 <div class="resize-handle"></div>
-                 <div class="delete-btn" onclick="confirmDelete(event, this)" title="Delete App">
+            const div = document.createElement('div');
+            const newId = Date.now();
+            div.className = 'app-card';
+            div.id = `app-${newId}`;
+            div.dataset.id = newId;
+            div.dataset.x = x;
+            div.dataset.y = y;
+
+            // Default Sizes based on type
+            let w = 1, h = 1;
+            if(appConfig.subtype === 'text') { w = 2; h = 2; }
+            if(appConfig.subtype === 'image') { w = 3; h = 2; }
+
+            div.dataset.cols = w;
+            div.dataset.rows = h;
+            div.dataset.type = "static"; // Main type
+
+            applyGrid(div, x, y, w, h);
+
+            // Construct the App Object to pass to render
+            const fullAppObj = {
+                id: newId,
+                name: appConfig.name,
+                subtype: appConfig.subtype,
+                data: appConfig.data,
+                x:x, y:y, cols:w, rows:h
+            };
+
+            // Render Inner Content
+            const innerHTML = getAppContentHTML(fullAppObj);
+
+            div.innerHTML = `
+                ${innerHTML}
+                <div class="resize-handle"></div>
+                <div class="card-meta">${w}x${h}</div>
+                <div class="delete-btn" onclick="confirmDelete(event, this)" title="Delete App">
                     <i class="fa-solid fa-trash"></i>
-                 </div>`;
-        dashboard.appendChild(div);
-        window.showToast(`${name} added!`, "success");
-    };
+                </div>
+            `;
+
+            dashboard.appendChild(div);
+
+            // Update Cache/Save
+            saveApps(); // Important to save immediately
+            window.showToast(`${appConfig.name} added!`, "success");
+        };
+
+    function getAppContentHTML(app) {
+        const data = app.data || {};
+        const subtype = app.subtype || 'link'; // Default to link
+
+        // 1. LINK APP
+        if (subtype === 'link') {
+            const icon = data.icon || 'fa-globe';
+            const url = data.url || '#';
+            return `
+                <a href="${url}" target="_blank" class="app-content app-type-link">
+                    <i class="fa-solid ${icon}"></i>
+                    <span>${app.name}</span>
+                </a>
+            `;
+        }
+
+        // 2. TEXT APP
+        if (subtype === 'text') {
+            return `
+                <div class="app-content app-type-text">
+                    <h4>${app.name}</h4>
+                    <p>${data.content || 'No content.'}</p>
+                </div>
+            `;
+        }
+
+        // 3. IMAGE APP
+        if (subtype === 'image') {
+            return `
+                <img src="${data.url}" alt="${app.name}" class="app-content app-type-image" draggable="false">
+            `;
+        }
+
+        return `<div class="app-content">Unknown Type</div>`;
+    }
 
     window.confirmDelete = (e, btn) => {
         e.stopPropagation(); if(!isEditMode) return;
@@ -830,18 +955,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- MODAL LOGIC (Unchanged) ---
     function showModal(title, html, confirmText, action, isDestructive = false) {
-    if(!modalOverlay) return;
-    modalTitle.innerText = title;
-    modalContent.innerHTML = html;
-    modalConfirm.innerHTML = confirmText;
-    modalAction = action;
+        if(!modalOverlay) return;
+        modalTitle.innerText = title;
+        modalContent.innerHTML = html;
+        modalConfirm.innerHTML = confirmText;
+        modalAction = action;
 
-    modalConfirm.classList.remove('btn-primary', 'btn-error');
+        modalConfirm.classList.remove('btn-primary', 'btn-error');
 
-    if (isDestructive) {
-        modalConfirm.classList.add('btn-error');
-    } else {
-        modalConfirm.classList.add('btn-primary');
+        if (isDestructive) {
+            modalConfirm.classList.add('btn-error');
+        } else {
+            modalConfirm.classList.add('btn-primary');
     }
 
     modalOverlay.classList.add('active');

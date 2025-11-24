@@ -165,6 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     };
 
+    // HELPER: Toggle fields in the Add App Modal
     window.toggleFormFields = (type) => {
         const urlField = document.getElementById('field-url');
         const iconField = document.getElementById('field-icon');
@@ -175,17 +176,47 @@ document.addEventListener('DOMContentLoaded', () => {
         if(contentField) contentField.style.display = (type === 'text') ? 'block' : 'none';
     };
 
+    // HELPER: Generate HTML based on App Type
+    function getAppContentHTML(app) {
+        const data = app.data || {};
+        const subtype = app.subtype || 'link';
+
+        if (subtype === 'link') {
+            const icon = data.icon || 'fa-globe';
+            const url = data.url || '#';
+            return `<a href="${url}" target="_blank" class="app-content app-type-link"><i class="fa-solid ${icon}"></i><span>${app.name}</span></a>`;
+        }
+        if (subtype === 'text') {
+            return `<div class="app-content app-type-text"><h4>${app.name}</h4><p>${data.content || ''}</p></div>`;
+        }
+        if (subtype === 'image') {
+            return `<img src="${data.url}" alt="${app.name}" class="app-content app-type-image" draggable="false">`;
+        }
+        return `<div class="app-content">Unknown Type</div>`;
+    }
+
     // =========================================================================
     // 3. APP LIFECYCLE & INITIALIZATION
     // =========================================================================
 
     function rebuildDashboardFromConfig(appsArray) {
-        dashboard.innerHTML = '<div class="grid-lines" id="gridLines"></div>'; // Clear and keep grid lines
+        dashboard.innerHTML = '<div class="grid-lines" id="gridLines"></div>';
         appsArray.forEach(app => {
             const div = document.createElement('div');
-            div.className = 'app-card'; div.id = `app-${app.id}`;
-            div.dataset.id = app.id; div.dataset.x = app.x; div.dataset.y = app.y;
-            div.dataset.cols = app.cols; div.dataset.rows = app.rows; div.dataset.type = app.type;
+            div.className = 'app-card';
+            div.id = `app-${app.id}`;
+            div.dataset.id = app.id;
+            div.dataset.x = app.x;
+            div.dataset.y = app.y;
+            div.dataset.cols = app.cols;
+            div.dataset.rows = app.rows;
+            div.dataset.type = app.type;
+
+            // FIX: Restore Metadata to Dataset
+            div.dataset.name = app.name;
+            div.dataset.subtype = app.subtype;
+            div.dataset.appData = JSON.stringify(app.data || {});
+
             applyGrid(div, app.x, app.y, app.cols, app.rows);
 
             const innerHTML = getAppContentHTML(app);
@@ -200,9 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             dashboard.appendChild(div);
         });
-        // Re-get gridLines element since we cleared the dashboard innerHTML
+
         gridLines = document.getElementById('gridLines');
-        // Re-draw grid lines in the new gridLines element
         for(let i=0; i<60; i++) {
             const div = document.createElement('div');
             div.className = 'grid-cell';
@@ -596,26 +626,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function saveApps() {
-        // 1. Scrape DOM for App State
         const apps = [];
         document.querySelectorAll('.app-card').forEach(card => {
             apps.push({
                 id: parseInt(card.dataset.id),
-                name: card.querySelector('.card-title').innerText,
+                name: card.dataset.name,
+                subtype: card.dataset.subtype,
                 type: card.dataset.type || "static",
                 x: parseInt(card.dataset.x),
                 y: parseInt(card.dataset.y),
                 cols: parseInt(card.dataset.cols),
-                rows: parseInt(card.dataset.rows)
+                rows: parseInt(card.dataset.rows),
+                data: JSON.parse(card.dataset.appData || '{}')
             });
         });
         currentConfig.apps = apps;
 
-        // 2. Use localStorage instead of server-side API
         try {
             localStorage.setItem('hestia_apps', JSON.stringify(apps));
 
-            // Visual feedback on the edit button
             const originalIcon = editBtn.innerHTML;
             editBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
             setTimeout(() => {
@@ -651,37 +680,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const html = `
             <div class="form-group" style="display:flex; flex-direction:column; gap:10px;">
                 <input type="text" id="appName" class="modal-input" placeholder="App Name (e.g. Google)">
-
                 <select id="appSubtype" class="modal-input" onchange="toggleFormFields(this.value)">
                     <option value="link">Link Button</option>
                     <option value="text">Text Note</option>
                     <option value="image">Image Frame</option>
                 </select>
-
-                <div id="field-url" class="dynamic-field">
-                    <input type="text" id="appUrl" class="modal-input" placeholder="URL (https://...)">
-                </div>
-
-                <div id="field-icon" class="dynamic-field">
-                    <input type="text" id="appIcon" class="modal-input" placeholder="Icon (e.g. fa-google)">
-                </div>
-
-                <div id="field-content" class="dynamic-field" style="display:none;">
-                    <textarea id="appContent" class="modal-input" rows="3" placeholder="Type your note here..."></textarea>
-                </div>
+                <div id="field-url" class="dynamic-field"><input type="text" id="appUrl" class="modal-input" placeholder="URL (https://...)"></div>
+                <div id="field-icon" class="dynamic-field"><input type="text" id="appIcon" class="modal-input" placeholder="Icon (e.g. fa-google)"></div>
+                <div id="field-content" class="dynamic-field" style="display:none;"><textarea id="appContent" class="modal-input" rows="3" placeholder="Type your note here..."></textarea></div>
             </div>
         `;
 
-        showModal("Add Static App", html, `<i class="fa-solid fa-plus"></i> Add`, () => {
+        showModal("Add Static App", html, `<i class="fa-solid fa-plus"></i>`, () => {
             const name = document.getElementById('appName').value.trim() || "Untitled";
             const subtype = document.getElementById('appSubtype').value;
 
-            const newAppData = {
-                type: 'static',
-                subtype: subtype,
-                name: name,
-                data: {}
-            };
+            const newAppData = { type: 'static', subtype: subtype, name: name, data: {} };
 
             if(subtype === 'link') {
                 newAppData.data.url = document.getElementById('appUrl').value;
@@ -691,26 +705,22 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (subtype === 'text') {
                 newAppData.data.content = document.getElementById('appContent').value;
             }
-
             window.createApp(newAppData);
         });
     };
 
-    window.createApp = (name) => {
+    window.createApp = (appConfig) => {
+        // FIX: Ensure we are using the passed object, not 'name'
         const cols = parseInt(currentConfig.theme.gridColumns) || 10;
         const rows = parseInt(currentConfig.theme.gridRows) || 6;
 
         cachedApps = Array.from(document.querySelectorAll('.app-card')).map(app => ({
-            el: app,
-            x: parseInt(app.dataset.x, 10)||0,
-            y: parseInt(app.dataset.y, 10)||0,
-            cols: parseInt(app.dataset.cols, 10)||1,
-            rows: parseInt(app.dataset.rows, 10)||1
+            el: app, x: parseInt(app.dataset.x, 10)||0, y: parseInt(app.dataset.y, 10)||0,
+            cols: parseInt(app.dataset.cols, 10)||1, rows: parseInt(app.dataset.rows, 10)||1
         }));
 
         let x = 1, y = 1, found = false;
 
-        // Loop using dynamic rows/cols
         for(let r=1; r<=rows; r++) {
             for(let c=1; c<=cols; c++) {
                 if(!checkCollision(null, c, r, 1, 1)) {
@@ -720,98 +730,72 @@ document.addEventListener('DOMContentLoaded', () => {
             if(found) break;
         }
 
-    if (!found) { window.showToast("Dashboard full!", "error"); return; }
+        if (!found) { window.showToast("Dashboard full!", "error"); return; }
 
-            const div = document.createElement('div');
-            const newId = Date.now();
-            div.className = 'app-card';
-            div.id = `app-${newId}`;
-            div.dataset.id = newId;
-            div.dataset.x = x;
-            div.dataset.y = y;
+        const div = document.createElement('div');
+        const newId = Date.now();
+        div.className = 'app-card';
+        div.id = `app-${newId}`;
+        div.dataset.id = newId;
+        div.dataset.x = x;
+        div.dataset.y = y;
 
-            // Default Sizes based on type
-            let w = 1, h = 1;
-            if(appConfig.subtype === 'text') { w = 2; h = 2; }
-            if(appConfig.subtype === 'image') { w = 3; h = 2; }
+        // FIX: Store Metadata in Dataset so saveApps() can find it
+        div.dataset.name = appConfig.name;
+        div.dataset.subtype = appConfig.subtype;
+        div.dataset.appData = JSON.stringify(appConfig.data);
 
-            div.dataset.cols = w;
-            div.dataset.rows = h;
-            div.dataset.type = "static"; // Main type
+        // Default Sizes
+        let w = 1, h = 1;
+        if(appConfig.subtype === 'text') { w = 2; h = 2; }
+        if(appConfig.subtype === 'image') { w = 3; h = 2; }
 
-            applyGrid(div, x, y, w, h);
+        div.dataset.cols = w;
+        div.dataset.rows = h;
+        div.dataset.type = "static";
 
-            // Construct the App Object to pass to render
-            const fullAppObj = {
-                id: newId,
-                name: appConfig.name,
-                subtype: appConfig.subtype,
-                data: appConfig.data,
-                x:x, y:y, cols:w, rows:h
-            };
+        applyGrid(div, x, y, w, h);
 
-            // Render Inner Content
-            const innerHTML = getAppContentHTML(fullAppObj);
-
-            div.innerHTML = `
-                ${innerHTML}
-                <div class="resize-handle"></div>
-                <div class="card-meta">${w}x${h}</div>
-                <div class="delete-btn" onclick="confirmDelete(event, this)" title="Delete App">
-                    <i class="fa-solid fa-trash"></i>
-                </div>
-            `;
-
-            dashboard.appendChild(div);
-
-            // Update Cache/Save
-            saveApps(); // Important to save immediately
-            window.showToast(`${appConfig.name} added!`, "success");
+        // Construct full object for renderer
+        const fullAppObj = {
+            id: newId,
+            name: appConfig.name,
+            subtype: appConfig.subtype,
+            data: appConfig.data,
+            x:x, y:y, cols:w, rows:h
         };
 
-    function getAppContentHTML(app) {
-        const data = app.data || {};
-        const subtype = app.subtype || 'link'; // Default to link
+        const innerHTML = getAppContentHTML(fullAppObj);
 
-        // 1. LINK APP
-        if (subtype === 'link') {
-            const icon = data.icon || 'fa-globe';
-            const url = data.url || '#';
-            return `
-                <a href="${url}" target="_blank" class="app-content app-type-link">
-                    <i class="fa-solid ${icon}"></i>
-                    <span>${app.name}</span>
-                </a>
-            `;
-        }
+        div.innerHTML = `
+            ${innerHTML}
+            <div class="resize-handle"></div>
+            <div class="card-meta">${w}x${h}</div>
+            <div class="delete-btn" onclick="confirmDelete(event, this)" title="Delete App">
+                <i class="fa-solid fa-trash"></i>
+            </div>
+        `;
 
-        // 2. TEXT APP
-        if (subtype === 'text') {
-            return `
-                <div class="app-content app-type-text">
-                    <h4>${app.name}</h4>
-                    <p>${data.content || 'No content.'}</p>
-                </div>
-            `;
-        }
+        dashboard.appendChild(div);
+        saveApps();
+        window.showToast(`${appConfig.name} added!`, "success");
+    };
 
-        // 3. IMAGE APP
-        if (subtype === 'image') {
-            return `
-                <img src="${data.url}" alt="${app.name}" class="app-content app-type-image" draggable="false">
-            `;
-        }
-
-        return `<div class="app-content">Unknown Type</div>`;
-    }
 
     window.confirmDelete = (e, btn) => {
         e.stopPropagation(); if(!isEditMode) return;
         const card = btn.closest('.app-card');
+
+        // FIX: Use dataset.name
+        const appName = card.dataset.name || "App";
+
         showModal(
             "Delete App",
-            `<p>Remove <strong>${card.querySelector('.card-title').innerText}</strong>?</p>`,
-            `<i class="fa-solid fa-trash"></i>`, () => { card.remove(); window.showToast("App deleted", "success");
+            `<p>Remove <strong>${appName}</strong>?</p>`,
+            `<i class="fa-solid fa-trash"></i>`,
+            () => {
+                card.remove();
+                window.showToast("App deleted", "success");
             },
             true
         );

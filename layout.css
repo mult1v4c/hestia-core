@@ -37,8 +37,8 @@ h1 {
     flex: 1;
     padding: var(--grid-padding);
     display: grid;
-    grid-template-columns: repeat(var(--grid-cols, 10), 1fr);
-    grid-template-rows: repeat(var(--grid-rows, 6), 1fr);
+    grid-template-columns: repeat(var(--grid-cols, 10), minmax(0, 1fr));
+    grid-template-rows: repeat(var(--grid-rows, 6), minmax(0, 1fr));
     gap: var(--gap-size);
     position: relative;
     transition: gap 0.3s, padding 0.3s;
@@ -88,6 +88,7 @@ h1 {
     z-index: 10;
     transition: box-shadow 0.2s, background-color 0.2s;
     color: var(--text-main);
+    overflow: hidden;
 }
 
 /* Enabled Outlines Toggle */

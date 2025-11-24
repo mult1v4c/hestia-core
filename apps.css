@@ -1,4 +1,9 @@
-/* Common Content Area */
+/* 1. Prevent clicking links while in Edit Mode (Fixes your bug!) */
+.edit-mode .app-content {
+    pointer-events: none;
+}
+
+/* 2. Common Content Area */
 .app-content {
     flex: 1;
     display: flex;
@@ -8,7 +13,7 @@
     height: 100%;
 }
 
-/* 1. Link App (Big Icon + Text) */
+/* 3. Link App (Big Icon + Text) */
 .app-type-link {
     align-items: center;
     justify-content: center;
@@ -22,7 +27,7 @@
 .app-type-link i { font-size: 2.5rem; margin-bottom: 10px; }
 .app-type-link span { font-size: 1rem; font-weight: bold; text-align: center; }
 
-/* 2. Text App (Header + Body) */
+/* 4. Text App (Header + Body) */
 .app-type-text {
     padding: 10px;
     align-items: flex-start;
@@ -36,11 +41,11 @@
 .app-type-text p {
     margin: 0;
     font-size: 0.9rem;
-    white-space: pre-wrap; /* Preserves newlines */
+    white-space: pre-wrap;
     line-height: 1.4;
 }
 
-/* 3. Image App (Full Coverage) */
+/* 5. Image App (Full Coverage) */
 .app-type-image {
     width: 100%;
     height: 100%;

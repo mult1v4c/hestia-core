@@ -154,7 +154,3 @@ body {
     opacity: 0.8;
     transform: scale(1.005);
 }
-
-.edit-mode .app-content {
-    pointer-events: none;
-}

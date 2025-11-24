@@ -153,14 +153,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.confirmReset = () => {
         showModal(
             "Reset Dashboard",
-            `<p>Are you sure you want to wipe **ALL** saved themes, presets, and app layout? This cannot be undone.</p>`,
+            `<p>Are you sure you want to wipe <strong>ALL</strong> saved themes, presets, and app layout? This cannot be undone.</p>`,
             `<i class="fa-solid fa-check"></i>`,
             () => {
                 localStorage.removeItem('hestia_theme');
                 localStorage.removeItem('hestia_apps');
                 showToast("Dashboard reset. Reloading...", "warning");
                 setTimeout(() => window.location.reload(), 500);
-            }
+            },
+            true
         );
     };
 
@@ -176,7 +177,12 @@ document.addEventListener('DOMContentLoaded', () => {
             div.dataset.id = app.id; div.dataset.x = app.x; div.dataset.y = app.y;
             div.dataset.cols = app.cols; div.dataset.rows = app.rows; div.dataset.type = app.type;
             applyGrid(div, app.x, app.y, app.cols, app.rows);
-            div.innerHTML = `<div class="card-title" ondblclick="renameApp(this)">${app.name}</div><div class="card-meta">${app.cols}x${app.rows}</div><div class="resize-handle"></div><div class="delete-btn" onclick="confirmDelete(event, this)"><i class="fa-solid fa-trash"></i></div>`;
+            div.innerHTML = `<div class="card-title" ondblclick="renameApp(this)">${app.name}</div>
+                 <div class="card-meta">${app.cols}x${app.rows}</div>
+                 <div class="resize-handle"></div>
+                 <div class="delete-btn" onclick="confirmDelete(event, this)" title="Delete App">
+                    <i class="fa-solid fa-trash"></i>
+                 </div>`;
             dashboard.appendChild(div);
         });
         // Re-get gridLines element since we cleared the dashboard innerHTML
@@ -543,28 +549,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
 
     window.toggleEditMode = () => {
+        const clearBtn = document.getElementById('clearBtn');
+
         if (!isEditMode) {
+            // ENTERING EDIT MODE
             isEditMode = true;
             dashboard.classList.add('edit-mode');
 
             editBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i>';
-            editBtn.title = 'Save Layout';
+            editBtn.title = 'Save Layout'; // Update tooltip
             editBtn.classList.remove('btn-primary');
             editBtn.style.borderColor = "var(--brand-primary)";
 
-            addBtn.disabled = false;
+            addBtn.disabled = false;   // Light up Add button
+            if(clearBtn) clearBtn.disabled = false; // Light up Clear button
 
             window.getSelection().removeAllRanges();
         } else {
-            saveApps(); // Saves to local storage
+            // EXITING EDIT MODE
+            saveApps();
             isEditMode = false;
             dashboard.classList.remove('edit-mode');
 
             editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
-            editBtn.title = 'Edit Mode';
+            editBtn.title = 'Edit Layout'; // Reset tooltip
             editBtn.classList.add('btn-primary');
 
-            addBtn.disabled = true;
+            addBtn.disabled = true;    // Dim Add button
+            if(clearBtn) clearBtn.disabled = true;  // Dim Clear button
         }
     };
 
@@ -658,7 +670,12 @@ document.addEventListener('DOMContentLoaded', () => {
         div.className = 'app-card'; div.id = `app-${newId}`;
         div.dataset.id = newId; div.dataset.x = x; div.dataset.y = y; div.dataset.cols = 1; div.dataset.rows = 1; div.dataset.type = "static";
         applyGrid(div, x, y, 1, 1);
-        div.innerHTML = `<div class="card-title" ondblclick="renameApp(this)">${name}</div><div class="card-meta">1x1</div><div class="resize-handle"></div><div class="delete-btn" onclick="confirmDelete(event, this)"><i class="fa-solid fa-trash"></i></div>`;
+        div.innerHTML = `<div class="card-title" ondblclick="renameApp(this)">${name}</div>
+                 <div class="card-meta">1x1</div>
+                 <div class="resize-handle"></div>
+                 <div class="delete-btn" onclick="confirmDelete(event, this)" title="Delete App">
+                    <i class="fa-solid fa-trash"></i>
+                 </div>`;
         dashboard.appendChild(div);
         window.showToast(`${name} added!`, "success");
     };
@@ -666,7 +683,33 @@ document.addEventListener('DOMContentLoaded', () => {
     window.confirmDelete = (e, btn) => {
         e.stopPropagation(); if(!isEditMode) return;
         const card = btn.closest('.app-card');
-        showModal("Delete App", `<p>Remove <strong>${card.querySelector('.card-title').innerText}</strong>?</p>`, `<i class="fa-solid fa-trash"></i>`, () => { card.remove(); window.showToast("App deleted", "success"); });
+        showModal(
+            "Delete App",
+            `<p>Remove <strong>${card.querySelector('.card-title').innerText}</strong>?</p>`,
+            `<i class="fa-solid fa-trash"></i>`, () => { card.remove(); window.showToast("App deleted", "success");
+            },
+            true
+        );
+    };
+
+    window.confirmClearAll = () => {
+        if(!isEditMode) return; // Safety check
+
+        showModal(
+            "Clear Dashboard",
+            "<p>Are you sure you want to remove <strong>ALL</strong> apps? This cannot be undone.</p>",
+            `<i class="fa-solid fa-broom"></i>`,
+            () => {
+                // 1. Wipe Config
+                currentConfig.apps = [];
+                // 2. Wipe Local Storage
+                saveApps();
+                // 3. Wipe UI
+                rebuildDashboardFromConfig([]);
+                window.showToast("Dashboard cleared!", "success");
+            },
+            true
+        );
     };
 
     window.renameApp = (el) => {
@@ -786,12 +829,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- MODAL LOGIC (Unchanged) ---
-    function showModal(title, html, confirmText, action) {
-        if(!modalOverlay) return;
-        modalTitle.innerText = title; modalContent.innerHTML = html; modalConfirm.innerHTML = confirmText; modalAction = action;
-        modalOverlay.classList.add('active');
-        const input = modalContent.querySelector('input'); if(input) setTimeout(() => input.focus(), 50);
+    function showModal(title, html, confirmText, action, isDestructive = false) {
+    if(!modalOverlay) return;
+    modalTitle.innerText = title;
+    modalContent.innerHTML = html;
+    modalConfirm.innerHTML = confirmText;
+    modalAction = action;
+
+    modalConfirm.classList.remove('btn-primary', 'btn-error');
+
+    if (isDestructive) {
+        modalConfirm.classList.add('btn-error');
+    } else {
+        modalConfirm.classList.add('btn-primary');
     }
+
+    modalOverlay.classList.add('active');
+    const input = modalContent.querySelector('input'); if(input) setTimeout(() => input.focus(), 50);
+}
+
     function closeModal() { if(modalOverlay) modalOverlay.classList.remove('active'); modalAction = null; }
     if(modalCancel) modalCancel.onclick = closeModal;
     if(modalConfirm) modalConfirm.onclick = () => { if(modalAction) modalAction(); closeModal(); };

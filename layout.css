@@ -102,8 +102,8 @@ h1 {
 /* Edit Mode: Dashed Lines & Re-enabled Transition */
 .dashboard-container.edit-mode .app-card {
     cursor: grab;
-    border-color: var(--border-edit-mode);
-    border-style: dashed;
+    border-color: var(--border-bright);
+    border-style: solid;
     transition: box-shadow 0.2s, background-color 0.2s, border-color 0.2s;
 }
 

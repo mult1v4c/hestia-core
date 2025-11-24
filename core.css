@@ -101,7 +101,7 @@ body {
     border-color: var(--brand-primary);
 }
 .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.3;
     cursor: not-allowed;
     color: var(--text-muted);
 }
@@ -119,4 +119,38 @@ body {
     width: 30px;
     height: 30px;
     padding: 0;
+}
+
+.btn-error {
+    color: var(--status-error);
+}
+
+.btn-error:hover:not(:disabled){
+    border-color: var(--status-error);
+    color: var(--status-error) !important;
+
+}
+
+/* -------------------------------------------------------------------------- */
+/* 4. MISC (Animations, etc.)                                                 */
+/* -------------------------------------------------------------------------- */
+
+/* Edit Mode Apps Shake */
+@keyframes shake-gentle {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(0.5deg); }
+    50% { transform: rotate(0deg); }
+    75% { transform: rotate(-0.5deg); }
+    100% { transform: rotate(0deg); }
+}
+
+.edit-mode .app-card {
+    animation: shake-gentle 0.25s infinite;
+    cursor: grab;
+}
+
+.edit-mode .app-card.moving {
+    animation: none;
+    opacity: 0.8;
+    transform: scale(1.005);
 }

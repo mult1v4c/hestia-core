@@ -15,14 +15,17 @@
     <header>
         <h1 id="headerTitle"><i class="fa-solid fa-fire"></i> HESTIA</h1>
         <div class="toolbar">
-            <button class="btn btn-icon" id="addBtn" onclick="promptNewApp()" disabled>
+            <button class="btn btn-icon btn-error" id="clearBtn" onclick="confirmClearAll()" title="Clear Dashboard" disabled>
+                <i class="fa-solid fa-broom"></i>
+            </button>
+            <button class="btn btn-icon" id="addBtn" onclick="promptNewApp()" title="Add New App" disabled>
                 <i class="fa-solid fa-plus"></i>
             </button>
-            <button class="btn btn-icon btn-primary" id="editBtn" onclick="toggleEditMode()">
+            <button class="btn btn-icon btn-primary" id="editBtn" onclick="toggleEditMode()" title="Edit Layout">
                 <i class="fa-solid fa-pen-to-square"></i>
             </button>
-            <button class="btn btn-icon btn-primary" id="settingsBtn" onclick="toggleSettingsPanel()">
-                <i class="fa-solid fa-sliders"></i>
+            <button class="btn btn-icon btn-primary" id="settingsBtn" onclick="toggleSettingsPanel()" title="Open Settings">
+                <i class="fa-solid fa-gear"></i>
             </button>
         </div>
     </header>
@@ -81,7 +84,7 @@
 
                         <div class="setting-row">
                             <span class="setting-label">Shadows</span>
-                            <div class="setting-controls" style="width: 270px; padding-left: 50px; justify-content: flex-start;">
+                            <div class="setting-controls" style="width: 270px; padding-left: 70px; justify-content: flex-start;">
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="input-shadow" data-default="true" onchange="updateSetting('shadow', this.checked, true)">
                                     <span class="slider"></span>
@@ -91,7 +94,7 @@
                         </div>
                         <div class="setting-row">
                             <span class="setting-label">Outlines</span>
-                            <div class="setting-controls" style="width: 270px; padding-left: 50px; justify-content: flex-start;">
+                            <div class="setting-controls" style="width: 270px; padding-left: 70px; justify-content: flex-start;">
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="input-outlines" data-default="true" onchange="updateSetting('outlines', this.checked, true)">
                                     <span class="slider"></span>
@@ -310,15 +313,7 @@
     };
 
     window.HESTIA_APPS_DEFAULT = [
-        { "id": 1001, "name": "System Monitor", "type": "static", "x": 1, "y": 1, "cols": 3, "rows": 4 },
-        { "id": 1002, "name": "Quick Launch Links", "type": "static", "x": 4, "y": 1, "cols": 4, "rows": 2 },
-        { "id": 1003, "name": "Calendar / Time", "type": "static", "x": 8, "y": 1, "cols": 3, "rows": 2 },
-
-        { "id": 1004, "name": "Current Weather", "type": "static", "x": 4, "y": 3, "cols": 2, "rows": 2 },
-        { "id": 1005, "name": "To-Do List", "type": "static", "x": 6, "y": 3, "cols": 5, "rows": 2 },
-
-        { "id": 1006, "name": "Project Status", "type": "static", "x": 1, "y": 5, "cols": 5, "rows": 2 },
-        { "id": 1007, "name": "Notes / Scratchpad", "type": "static", "x": 6, "y": 5, "cols": 5, "rows": 2 }
+        { "id": 1001, "name": "Welcome!", "type": "static", "x": 4, "y": 3, "cols": 4, "rows": 2 },
     ];
 </script>
     <script src="palettes.js"></script>

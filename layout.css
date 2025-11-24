@@ -89,6 +89,8 @@ h1 {
     transition: box-shadow 0.2s, background-color 0.2s;
     color: var(--text-main);
     overflow: hidden;
+    min-height: 0;
+    min-width: 0;
 }
 
 /* Enabled Outlines Toggle */

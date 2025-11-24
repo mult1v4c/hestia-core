@@ -170,24 +170,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // HELPER: Sync the modal color state and UI elements
-    function setAppModalColor(key, color) {
+    window.setAppModalColor = (key, color) => {
         let hex = window.formatColor(color);
 
         if (key === 'appBgColor') {
             modalAppBgColor = hex;
             const preview = document.getElementById('modal-bg-preview');
             const input = document.getElementById('modalAppBgColorInput');
+            // Also sync the hidden native picker so it stays matching
+            const native = document.getElementById('input-modal-bg-native');
+
             if (preview) preview.style.backgroundColor = hex;
             if (input) input.value = hex;
+            if (native && native.value !== hex) native.value = hex;
+
         } else if (key === 'appTextColor') {
             modalAppTextColor = hex;
             const preview = document.getElementById('modal-text-preview');
             const input = document.getElementById('modalAppTextColorInput');
+            // Also sync the hidden native picker
+            const native = document.getElementById('input-modal-text-native');
+
             if (preview) preview.style.backgroundColor = hex;
             if (input) input.value = hex;
+            if (native && native.value !== hex) native.value = hex;
         }
-    }
-
+    };
     // Opens the Base16 Popover, customized for the Add/Edit App modal
     window.openAppColorPicker = (key, previewEl) => {
         activeAppColorKey = key;
@@ -233,10 +241,20 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.openAppNativePicker = () => {
+        const targetKey = activeAppColorKey;
+
         closeAppPopover();
-        if(activeAppColorKey === 'appBgColor') document.getElementById('input-modal-bg-native').click();
-        else if(activeAppColorKey === 'appTextColor') document.getElementById('input-modal-text-native').click();            closeAppPopover();
-        };
+
+        if(targetKey === 'appBgColor') {
+            const input = document.getElementById('input-modal-bg-native');
+            if(modalAppBgColor) input.value = window.formatColor(modalAppBgColor);
+            input.click();
+        } else if(targetKey === 'appTextColor') {
+            const input = document.getElementById('input-modal-text-native');
+            if(modalAppTextColor) input.value = window.formatColor(modalAppTextColor);
+            input.click();
+        }
+    };
 
     function closeAppPopover() {
         if(palettePopover) {

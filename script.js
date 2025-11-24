@@ -72,6 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let activePopoverKey = null;
     let modalAction = null;
 
+    let activeAppColorKey = null; // 'appBgColor' or 'appTextColor'
+    let activeAppColorPreview = null;
+    let modalAppBgColor = null; // Will store the final color string
+    let modalAppTextColor = null;
 
     // =========================================================================
     // 2. CORE HELPER UTILITIES
@@ -164,6 +168,83 @@ document.addEventListener('DOMContentLoaded', () => {
             true
         );
     };
+
+    // HELPER: Sync the modal color state and UI elements
+    function setAppModalColor(key, color) {
+        let hex = window.formatColor(color);
+
+        if (key === 'appBgColor') {
+            modalAppBgColor = hex;
+            const preview = document.getElementById('modal-bg-preview');
+            const input = document.getElementById('modalAppBgColorInput');
+            if (preview) preview.style.backgroundColor = hex;
+            if (input) input.value = hex;
+        } else if (key === 'appTextColor') {
+            modalAppTextColor = hex;
+            const preview = document.getElementById('modal-text-preview');
+            const input = document.getElementById('modalAppTextColorInput');
+            if (preview) preview.style.backgroundColor = hex;
+            if (input) input.value = hex;
+        }
+    }
+
+    // Opens the Base16 Popover, customized for the Add/Edit App modal
+    window.openAppColorPicker = (key, previewEl) => {
+        activeAppColorKey = key;
+        activeAppColorPreview = previewEl;
+        closePopover(); // Close settings popover if open
+
+        const rect = previewEl.getBoundingClientRect();
+
+        // Position popover relative to the clicked preview in the viewport
+        palettePopover.style.top = (rect.bottom + 5) + 'px';
+        // Offset slightly left to center under the preview swatch
+        palettePopover.style.left = (rect.left - 75) + 'px';
+
+        let colors = [];
+        const activePal = currentConfig.theme.activePalette;
+        if(activePal && availablePalettes[activePal]) {
+            const p = availablePalettes[activePal];
+            ['base00','base01','base02','base03','base04','base05','base06','base07',
+            'base08','base09','base0A','base0B','base0C','base0D','base0E','base0F'].forEach(k => {
+                if(p[k]) colors.push(formatColor(p[k]));
+            });
+        }
+
+        let html = '<div class="popover-grid">';
+        if(colors.length > 0) {
+            colors.forEach(c => {
+                html += `<div class="palette-swatch" style="background:${c}" onclick="selectAppPopoverColor('${c}')"></div>`;
+            });
+        } else {
+            html += `<div style="padding:10px; color:var(--text-muted); font-size:0.8rem;">No palette selected.</div>`;
+        }
+
+        html += '</div><div class="popover-footer"><button class="btn" onclick="openAppNativePicker()">Custom...</button></div>';
+        palettePopover.innerHTML = html;
+        palettePopover.classList.add('active');
+    };
+
+    window.selectAppPopoverColor = (color) => {
+        if(activeAppColorKey) {
+            setAppModalColor(activeAppColorKey, color);
+        }
+        closeAppPopover();
+    };
+
+    window.openAppNativePicker = () => {
+        closeAppPopover();
+        if(activeAppColorKey === 'appBgColor') document.getElementById('input-modal-bg-native').click();
+        else if(activeAppColorKey === 'appTextColor') document.getElementById('input-modal-text-native').click();            closeAppPopover();
+        };
+
+    function closeAppPopover() {
+        if(palettePopover) {
+            palettePopover.classList.remove('active');
+            activeAppColorKey = null;
+            activeAppColorPreview = null;
+        }
+    }
 
     // HELPER: Toggle fields in the Add App Modal
     window.toggleFormFields = (type) => {
@@ -297,6 +378,14 @@ document.addEventListener('DOMContentLoaded', () => {
         card.dataset.subtype = config.subtype;
         card.dataset.appData = JSON.stringify(config.data);
 
+        const bgColor = config.data.bgColor || 'var(--bg-surface)';
+        const textColor = config.data.textColor || 'var(--text-main)';
+
+        card.dataset.appBgColor = bgColor;
+        card.dataset.appTextColor = textColor;
+        card.style.backgroundColor = bgColor; // Apply BG style
+        card.style.color = textColor; // Apply Text style
+
         // Construct full object for renderer (needed by getAppContentHTML)
         const fullAppObj = {
             id: parseInt(card.dataset.id),
@@ -335,17 +424,36 @@ document.addEventListener('DOMContentLoaded', () => {
             data: JSON.parse(card.dataset.appData || '{}')
         };
 
+        // --- NEW: Load Colors from Card/Data (or defaults) ---
+        const rootStyles = getComputedStyle(document.documentElement);
+        modalAppBgColor = card.dataset.appBgColor || rootStyles.getPropertyValue('--bg-surface').trim() || '#282828';
+        modalAppTextColor = card.dataset.appTextColor || rootStyles.getPropertyValue('--text-main').trim() || '#d8d8d8';
+
+
+        const colorFieldsHtml = `
+            <div id="field-colors" class="dynamic-field" style="display:flex; gap:20px; margin-top:10px; margin-bottom:10px;">
+                <div style="flex:1;"><label style="font-size:0.8rem; color:var(--text-muted);">App Background</label><div style="display:flex; align-items:center; gap:8px;">
+                    <div class="color-preview" id="modal-bg-preview" onclick="openAppColorPicker('appBgColor', this)" style="background:${modalAppBgColor}"></div>
+                    <input type="text" id="modalAppBgColorInput" class="modal-input-color" placeholder="#HEX" onchange="setAppModalColor('appBgColor', this.value)" value="${modalAppBgColor}">
+                </div></div>
+                <div style="flex:1;"><label style="font-size:0.8rem; color:var(--text-muted);">App Text</label><div style="display:flex; align-items:center; gap:8px;">
+                    <div class="color-preview" id="modal-text-preview" onclick="openAppColorPicker('appTextColor', this)" style="background:${modalAppTextColor}"></div>
+                    <input type="text" id="modalAppTextColorInput" class="modal-input-color" placeholder="#HEX" onchange="setAppModalColor('appTextColor', this.value)" value="${modalAppTextColor}">
+                </div></div>
+            </div>
+        `;
+
         // 2. Use the same HTML structure as promptNewApp
         const html = `
             <div class="form-group" style="display:flex; flex-direction:column; gap:10px;">
                 <input type="text" id="appName" class="modal-input" placeholder="App Name (e.g. Google)">
-                <select id="appSubtype" class="modal-input" onchange="toggleFormFields(this.value)">
+                <select type="text" id="appSubtype" class="modal-input" onchange="toggleFormFields(this.value)">
                     <option value="link">Link Button</option>
                     <option value="text">Text Note</option>
                     <option value="image">Image Frame</option>
                 </select>
 
-                <div id="field-img-source" class="dynamic-field" style="display:none; gap:15px; margin-bottom:5px;">
+                ${colorFieldsHtml} <div id="field-img-source" class="dynamic-field" style="display:none; gap:15px; margin-bottom:5px;">
                     <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
                         <input type="radio" name="imgSource" value="url" checked onchange="toggleImageSource('url')"> Web Link
                     </label>
@@ -410,6 +518,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // --- NEW: Add Color Data to app config (Uses latest modalApp variables) ---
+            newAppData.data.bgColor = modalAppBgColor;
+            newAppData.data.textColor = modalAppTextColor;
+
             // 4. Update the card and save
             updateAppCard(card, newAppData);
 
@@ -440,11 +552,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // If URL, select 'Web Link' radio and fill URL
                 document.getElementById('appUrl').value = appData.data.url || '';
+                document.getElementById('appUrl').disabled = false;
                 toggleImageSource('url');
             }
         }
-    };
-
+};
 
     // =========================================================================
     // 3. APP LIFECYCLE & INITIALIZATION
@@ -467,6 +579,13 @@ document.addEventListener('DOMContentLoaded', () => {
             div.dataset.name = app.name;
             div.dataset.subtype = app.subtype;
             div.dataset.appData = JSON.stringify(app.data || {});
+
+            const bgColor = app.data.bgColor || 'var(--bg-surface)';
+            const textColor = app.data.textColor || 'var(--text-main)';
+            div.dataset.appBgColor = bgColor;
+            div.dataset.appTextColor = textColor;
+            div.style.backgroundColor = bgColor; // Apply BG style
+            div.style.color = textColor; // Apply Text style
 
             applyGrid(div, app.x, app.y, app.cols, app.rows);
 
@@ -931,93 +1050,125 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- APP CRUD LOGIC ---
     window.promptNewApp = () => {
-    if(!isEditMode) return;
+        if(!isEditMode) return;
 
-    const html = `
-        <div class="form-group" style="display:flex; flex-direction:column; gap:10px;">
-            <input type="text" id="appName" class="modal-input" placeholder="App Name (e.g. My Photo)">
+        // --- NEW: Initialize colors to current card defaults ---
+        const rootStyles = getComputedStyle(document.documentElement);
+        modalAppBgColor = rootStyles.getPropertyValue('--bg-surface').trim() || '#282828';
+        modalAppTextColor = rootStyles.getPropertyValue('--text-main').trim() || '#d8d8d8';
 
-            <select id="appSubtype" class="modal-input" onchange="toggleFormFields(this.value)">
-                <option value="link">Link Button</option>
-                <option value="text">Text Note</option>
-                <option value="image">Image Frame</option>
-            </select>
-
-            <div id="field-img-source" class="dynamic-field" style="display:none; gap:15px; margin-bottom:5px;">
-                <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
-                    <input type="radio" name="imgSource" value="url" checked onchange="toggleImageSource('url')"> Web Link
-                </label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
-                    <input type="radio" name="imgSource" value="upload" onchange="toggleImageSource('upload')"> Local Upload
-                </label>
+        const colorFieldsHtml = `
+            <div id="field-colors" class="dynamic-field" style="display:flex; gap:20px; margin-top:10px; margin-bottom:10px;">
+                <div style="flex:1;"><label style="font-size:0.8rem; color:var(--text-muted);">App Background</label><div style="display:flex; align-items:center; gap:8px;">
+                    <div class="color-preview" id="modal-bg-preview" onclick="openAppColorPicker('appBgColor', this)" style="background:${modalAppBgColor}"></div>
+                    <input type="text" id="modalAppBgColorInput" class="modal-input-color" placeholder="#HEX" onchange="setAppModalColor('appBgColor', this.value)" value="${modalAppBgColor}">
+                </div></div>
+                <div style="flex:1;"><label style="font-size:0.8rem; color:var(--text-muted);">App Text</label><div style="display:flex; align-items:center; gap:8px;">
+                    <div class="color-preview" id="modal-text-preview" onclick="openAppColorPicker('appTextColor', this)" style="background:${modalAppTextColor}"></div>
+                    <input type="text" id="modalAppTextColorInput" class="modal-input-color" placeholder="#HEX" onchange="setAppModalColor('appTextColor', this.value)" value="${modalAppTextColor}">
+                </div></div>
             </div>
+        `;
 
-            <div id="field-url" class="dynamic-field">
-                <input type="text" id="appUrl" class="modal-input" placeholder="URL (https://...)">
-            </div>
+        const html = `
+            <div class="form-group" style="display:flex; flex-direction:column; gap:10px;">
+                <input type="text" id="appName" class="modal-input" placeholder="App Name (e.g. My Photo)">
 
-            <div id="field-file" class="dynamic-field" style="display:none;">
-                <input type="file" id="appFileInput" class="modal-input" accept="image/*">
-                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px;">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Max ~2MB recommended (LocalStorage limit).
+                <select id="appSubtype" class="modal-input" onchange="toggleFormFields(this.value)">
+                    <option value="link">Link Button</option>
+                    <option value="text">Text Note</option>
+                    <option value="image">Image Frame</option>
+                </select>
+
+                ${colorFieldsHtml} <div id="field-img-source" class="dynamic-field" style="display:none; gap:15px; margin-bottom:5px;">
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
+                        <input type="radio" name="imgSource" value="url" checked onchange="toggleImageSource('url')"> Web Link
+                    </label>
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
+                        <input type="radio" name="imgSource" value="upload" onchange="toggleImageSource('upload')"> Local Upload
+                    </label>
+                </div>
+
+                <div id="field-url" class="dynamic-field">
+                    <input type="text" id="appUrl" class="modal-input" placeholder="URL (https://...)">
+                </div>
+
+                <div id="field-file" class="dynamic-field" style="display:none;">
+                    <input type="file" id="appFileInput" class="modal-input" accept="image/*">
+                    <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Max ~2MB recommended (LocalStorage limit).
+                    </div>
+                </div>
+
+                <div id="field-icon" class="dynamic-field">
+                    <input type="text" id="appIcon" class="modal-input" placeholder="Icon (e.g. fa-google)">
+                </div>
+                <div id="field-content" class="dynamic-field" style="display:none;">
+                    <textarea id="appContent" class="modal-input" rows="3" placeholder="Type your note here..."></textarea>
                 </div>
             </div>
+        `;
 
-            <div id="field-icon" class="dynamic-field">
-                <input type="text" id="appIcon" class="modal-input" placeholder="Icon (e.g. fa-google)">
-            </div>
-            <div id="field-content" class="dynamic-field" style="display:none;">
-                <textarea id="appContent" class="modal-input" rows="3" placeholder="Type your note here..."></textarea>
-            </div>
-        </div>
-    `;
+        showModal("Add App", html, `<i class="fa-solid fa-plus"></i>`, async () => {
+            const name = document.getElementById('appName').value.trim() || "Untitled";
+            const subtype = document.getElementById('appSubtype').value;
 
-    showModal("Add App", html, `<i class="fa-solid fa-plus"></i>`, async () => {
-        const name = document.getElementById('appName').value.trim() || "Untitled";
-        const subtype = document.getElementById('appSubtype').value;
+            const newAppData = {
+                type: 'static',
+                subtype: subtype,
+                name: name,
+                data: {}
+            };
 
-        const newAppData = {
-            type: 'static',
-            subtype: subtype,
-            name: name,
-            data: {}
-        };
+            // Ensure the input values are correctly captured, especially for colors
+            // NOTE: modalAppBgColor and modalAppTextColor are already updated by
+            // setAppModalColor/openAppColorPicker which is called on user interaction.
 
-        if(subtype === 'link') {
-            newAppData.data.url = document.getElementById('appUrl').value;
-            newAppData.data.icon = document.getElementById('appIcon').value || 'fa-link';
-        }
-        else if (subtype === 'text') {
-            newAppData.data.content = document.getElementById('appContent').value;
-        }
-        else if (subtype === 'image') {
-            // Check if we are using URL or Upload
-            const isUpload = document.querySelector('input[name="imgSource"][value="upload"]').checked;
+            if(subtype === 'link') {
+                newAppData.data.url = document.getElementById('appUrl').value;
+                newAppData.data.icon = document.getElementById('appIcon').value || 'fa-link';
+            }
+            else if (subtype === 'text') {
+                newAppData.data.content = document.getElementById('appContent').value;
+            }
+            else if (subtype === 'image') {
+                // Check if we are using URL or Upload
+                const isUpload = document.querySelector('input[name="imgSource"][value="upload"]').checked;
 
-            if (isUpload) {
-                const fileInput = document.getElementById('appFileInput');
-                if (fileInput.files && fileInput.files[0]) {
-                    try {
-                        // Convert file to Base64 String
-                        const base64String = await convertFileToBase64(fileInput.files[0]);
-                        newAppData.data.url = base64String;
-                    } catch (e) {
-                        window.showToast("Error processing image", "error");
-                        return;
+                if (isUpload) {
+                    const fileInput = document.getElementById('appFileInput');
+                    if (fileInput.files && fileInput.files[0]) {
+                        try {
+                            // Convert file to Base64 String
+                            const base64String = await convertFileToBase64(fileInput.files[0]);
+                            newAppData.data.url = base64String;
+                        } catch (e) {
+                            window.showToast("Error processing image", "error");
+                            return;
+                        }
+                    } else {
+                        // Fallback placeholder if no file selected
+                        newAppData.data.url = "";
                     }
                 } else {
-                    // Fallback placeholder if no file selected
-                    newAppData.data.url = "";
+                    // Use the standard URL
+                    newAppData.data.url = document.getElementById('appUrl').value;
                 }
-            } else {
-                // Use the standard URL
-                newAppData.data.url = document.getElementById('appUrl').value;
             }
-        }
 
-        window.createApp(newAppData);
-    });
-};
+            // --- NEW: Add Color Data to app config (Uses latest modalApp variables) ---
+            newAppData.data.bgColor = modalAppBgColor;
+            newAppData.data.textColor = modalAppTextColor;
+
+            window.createApp(newAppData);
+        });
+
+        // --- NEW: Pre-populate colors and fields after modal is shown ---
+        setTimeout(() => {
+            // Must call toggleFormFields to show the default link/icon fields
+            toggleFormFields(document.getElementById('appSubtype').value);
+        }, 50);
+    };
 
     window.createApp = (appConfig) => {
         // FIX: Ensure we are using the passed object, not 'name'
@@ -1054,6 +1205,14 @@ document.addEventListener('DOMContentLoaded', () => {
         div.dataset.name = appConfig.name;
         div.dataset.subtype = appConfig.subtype;
         div.dataset.appData = JSON.stringify(appConfig.data);
+
+        const bgColor = appConfig.data.bgColor || 'var(--bg-surface)';
+        const textColor = appConfig.data.textColor || 'var(--text-main)';
+
+        div.dataset.appBgColor = bgColor;
+        div.dataset.appTextColor = textColor;
+        div.style.backgroundColor = bgColor; // Apply BG style
+        div.style.color = textColor; // Apply Text style (for inheritance)
 
         // Default Sizes
         let w = 1, h = 1;

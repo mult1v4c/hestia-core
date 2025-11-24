@@ -20,7 +20,7 @@
     align-items: center;
     justify-content: center;
     text-decoration: none;
-    color: var(--text-main);
+    color: inherit; /* Change from var(--text-main) to inherit the card's color */
     height: 100%;
     width: 100%;
     transition: color 0.2s;
@@ -33,11 +33,11 @@
 .app-type-text {
     padding: 10px;
     align-items: flex-start;
-    color: var(--text-muted);
+    color: inherit;
 }
 .app-type-text h4 {
     margin: 0 0 5px 0;
-    color: var(--text-main);
+    color: inherit;
     font-size: 1.1rem;
 }
 .app-type-text p {
@@ -45,6 +45,7 @@
     font-size: 0.9rem;
     white-space: pre-wrap;
     line-height: 1.4;
+    color: inherit;
 }
 
 /* 5. Image App (Full Coverage) */

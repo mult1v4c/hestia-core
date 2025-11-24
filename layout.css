@@ -190,3 +190,16 @@ h1 {
         grid-row: auto !important;
     }
 }
+
+.modal-input-color {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    color: var(--text-main);
+    padding: 4px 10px;
+    text-align: left;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    font-family: inherit;
+    height: 30px;
+    width: 130px;
+}

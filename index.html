@@ -256,7 +256,8 @@
         <input type="color" class="hidden-native-picker" id="input-statusSuccess" value="#a1b56c" onchange="updateSetting('statusSuccess', this.value)">
     </div>
 
-    <div id="palettePopover" class="palette-popover"></div>
+    <input type="color" class="hidden-native-picker" id="input-modal-bg-native" onchange="document.getElementById('modalAppBgColorInput').value = this.value; setAppModalColor('appBgColor', this.value);">
+    <input type="color" class="hidden-native-picker" id="input-modal-text-native" onchange="document.getElementById('modalAppTextColorInput').value = this.value; setAppModalColor('appTextColor', this.value);">    <div id="palettePopover" class="palette-popover"></div>
 
     <div class="toast-container" id="toast-container"></div>
 

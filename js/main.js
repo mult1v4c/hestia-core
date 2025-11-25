@@ -12,6 +12,15 @@ import { initSettingsPanel } from "./ui/settingsPanel.js";
 import { initAppEditor } from "./ui/appEditor.js";
 import { logger } from "./logger.js";
 
+/**
+ * Import Apps
+ */
+
+import './LinkApp.js';
+import './NoteApp.js';
+import './ImageApp.js';
+// Add apps here to register
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
     logger.info("Hestia-Core: Booting...");

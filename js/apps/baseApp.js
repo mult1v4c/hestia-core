@@ -1,28 +1,11 @@
-// js/apps/baseApp.js
-
-/**
- * Base class for all Hestia Apps.
- */
+// apps/baseApp.js
 export class BaseApp {
     constructor() {
-        this.type = "static";
+        // Shared logic can go here later
     }
 
-    /**
-     * Returns the HTML content for the app card.
-     * @param {Object} app - The full app state object
-     * @returns {Promise<string>} HTML string
-     */
-    async render(app) {
-        return `<div class="app-content">Base App</div>`;
-    }
-
-    /**
-     * Optional: Called after the element is added to the DOM.
-     * @param {HTMLElement} el - The app card element
-     * @param {Object} app - The app state object
-     */
-    onMount(el, app) {
-        // No-op by default
+    // All apps must implement this
+    async render(appData) {
+        throw new Error("Render method not implemented");
     }
 }

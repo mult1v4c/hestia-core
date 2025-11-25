@@ -1,7 +1,7 @@
 // js/appRegistry.js
-import { LinkApp } from "./apps/static/linkApp.js";
-import { NoteApp } from "./apps/static/noteApp.js";
-import { ImageApp } from "./apps/static/imageApp.js";
+import { LinkApp } from "./apps/linkApp.js";
+import { NoteApp } from "./apps/noteApp.js";
+import { ImageApp } from "./apps/imageApp.js";
 
 const registry = new Map();
 

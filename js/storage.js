@@ -1,57 +1,56 @@
-// js/storage.js
-// Centralized state persistence.
-// Handles localStorage interaction and File Import/Export.
-
-import { state } from "./state.js";
+import { state, setState } from "./state.js";
+import { DEFAULT_THEME, DEFAULT_APPS } from "./constants.js"; // Import defaults!
 
 const STORAGE_KEY = "HESTIA_DASHBOARD_STATE";
-
-// Old keys for migration
 const LEGACY_THEME_KEY = "hestia_theme";
 const LEGACY_APPS_KEY = "hestia_apps";
 
-// Load state from localStorage.
-// Checks for legacy data first, migrates it, then checks new key.
 export function loadState() {
   try {
-    // 1. Check for modern storage key
     const raw = localStorage.getItem(STORAGE_KEY);
+
     if (raw) {
       const parsed = JSON.parse(raw);
+
+      // Deep merge with state to ensure structure
+      // We prioritize saved data, but if a key is missing, we keep the default from state.js
       deepMerge(state, parsed);
-      console.info("[storage] State loaded successfully.");
+
+      // Special check: If apps array is missing in saved data, use defaults
+      if (!parsed.apps) {
+          state.apps = DEFAULT_APPS;
+      }
+
+      // Ensure settings exist
+      if (!state.settings.theme) state.settings.theme = DEFAULT_THEME;
+
+      console.info("[storage] State loaded.");
       return state;
     }
 
-    // 2. Check for Legacy keys (Migration Path)
+    // Migration Path (Legacy)
     const legacyTheme = localStorage.getItem(LEGACY_THEME_KEY);
     const legacyApps = localStorage.getItem(LEGACY_APPS_KEY);
 
     if (legacyTheme || legacyApps) {
-      console.warn("[storage] Legacy data found. Migrating to new format...");
-
+      console.warn("[storage] Migrating legacy data...");
       if (legacyTheme) {
         const themeData = JSON.parse(legacyTheme);
-        // Map old structure to new structure if needed, or direct merge
-        if(themeData.theme) state.settings.theme = themeData.theme;
+        if(themeData.theme) state.settings.theme = { ...DEFAULT_THEME, ...themeData.theme };
         if(themeData.custom_presets) state.settings.custom_presets = themeData.custom_presets;
       }
-
       if (legacyApps) {
         state.apps = JSON.parse(legacyApps);
       }
-
-      // Save to new format immediately so we don't migrate next time
       saveState();
-
-      // Optional: Clean up old keys
-      // localStorage.removeItem(LEGACY_THEME_KEY);
-      // localStorage.removeItem(LEGACY_APPS_KEY);
-
       return state;
     }
 
-    console.warn("[storage] No saved data found. Using defaults.");
+    // No saved data? Use Defaults
+    console.warn("[storage] No save found. Loading defaults.");
+    state.apps = [...DEFAULT_APPS]; // Clone array
+    state.settings.theme = { ...DEFAULT_THEME };
+    saveState(); // Save immediately so we have a baseline
     return state;
 
   } catch (err) {
@@ -60,22 +59,20 @@ export function loadState() {
   }
 }
 
-// Save current global state to localStorage
+// ... (saveState, resetState, export/import remain the same but added below for completeness) ...
+
 export function saveState() {
   try {
-    // We only save specific parts of state to avoid bloating
     const persistencePayload = {
       apps: state.apps,
       settings: state.settings
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persistencePayload));
-    // console.debug("[storage] State saved.");
   } catch (err) {
     console.error("[storage] Failed to save state.", err);
   }
 }
 
-// Clear everything and reload
 export function resetState() {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(LEGACY_THEME_KEY);
@@ -83,25 +80,19 @@ export function resetState() {
   window.location.reload();
 }
 
-// -----------------------------
-// IMPORT / EXPORT
-// -----------------------------
-
 export function exportStateToFile() {
   const exportData = {
     apps: state.apps,
     settings: state.settings,
     timestamp: Date.now(),
-    version: "1.0"
+    version: "2.0"
   };
-
-  const json = JSON.stringify(exportData, null, 2); // Pretty print
+  const json = JSON.stringify(exportData, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement('a');
   a.href = url;
-  a.download = `hestia-core_config_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `hestia_config_${new Date().toISOString().slice(0,10)}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -110,37 +101,15 @@ export function exportStateToFile() {
 
 export function importStateFromFile(file) {
   return new Promise((resolve, reject) => {
-    if (!file) {
-      reject("No file provided");
-      return;
-    }
-
+    if (!file) { reject("No file"); return; }
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-
-        // Basic validation
-        if (!data.apps && !data.settings && !data.theme) {
-          throw new Error("Invalid Hestia configuration file.");
-        }
-
-        // Handle both new export format and potentially legacy exports
-        if (data.settings) {
-            state.settings = data.settings;
-        } else if (data.theme) {
-            // Handle legacy export format
-            state.settings.theme = data.theme;
-        }
-
-        if (data.apps) {
-            state.apps = data.apps;
-        }
-
-        // Persist immediately
+        if (data.settings) state.settings = data.settings;
+        if (data.apps) state.apps = data.apps;
         saveState();
         resolve(state);
-
       } catch (error) {
         console.error("Import failed:", error);
         reject(error);
@@ -151,11 +120,6 @@ export function importStateFromFile(file) {
   });
 }
 
-// -----------------------------
-// HELPER
-// -----------------------------
-
-// Deep merge parsed data into the existing state object safely
 function deepMerge(target, source) {
   for (const key in source) {
     if (source[key] !== null && typeof source[key] === "object" && !Array.isArray(source[key])) {

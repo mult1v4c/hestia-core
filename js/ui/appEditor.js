@@ -1,4 +1,4 @@
-import { state } from "../state.js";
+import { state, setState } from "../state.js";
 import { qs, qsa } from "../dom.js";
 import { showModal } from "./modal.js";
 import { showToast } from "./toasts.js";
@@ -6,8 +6,8 @@ import { saveImage } from "../imageStore.js";
 import { openColorPicker } from "./colorPicker.js";
 import { renderGrid, saveGridState } from "../grid.js";
 import { formatColor } from "../utils.js";
+import { logger } from "../logger.js";
 
-// Template for the Modal Form
 const FORM_HTML = `
     <div class="form-group" style="display:flex; flex-direction:column; gap:10px;">
         <input type="text" id="appName" class="modal-input" placeholder="App Name">
@@ -54,16 +54,15 @@ export function initAppEditor() {
     const addBtn = qs('#addBtn');
     if (addBtn) addBtn.onclick = promptNewApp;
 
-    // Event Delegation for Edit/Delete buttons on cards
     const dashboard = qs('#dashboard');
     if (dashboard) {
-        dashboard.addEventListener('click', (/** @type {Event} */ e) => {
-            const target = /** @type {HTMLElement} */ (e.target);
+        dashboard.addEventListener('click', (e) => {
+            const target = e.target;
             const card = target.closest('.app-card');
             if (!card) return;
 
-            if (target.closest('.edit-btn')) promptEditApp(/** @type {HTMLElement} */ (card));
-            if (target.closest('.delete-btn')) promptDeleteApp(/** @type {HTMLElement} */ (card));
+            if (target.closest('.edit-btn')) promptEditApp(card);
+            if (target.closest('.delete-btn')) promptDeleteApp(card);
         });
     }
 }
@@ -74,7 +73,6 @@ function updateFormVisibility() {
     const sourceInput = qs('input[name="imgSource"]:checked');
     const source = sourceInput ? sourceInput.value : 'url';
 
-    // Hide all first
     ['url','icon','content','img-source','file'].forEach(id => {
         const el = qs(`#field-${id}`);
         if(el) el.style.display = 'none';
@@ -102,32 +100,23 @@ function promptNewApp() {
         textColor: rootStyle.getPropertyValue('--text-main').trim()
     };
 
-    showModal("Add App", FORM_HTML, '<i class="fa-solid fa-plus"></i>', async () => {
-        await handleSaveApp(null);
+    showModal("Add App", FORM_HTML, '<i class="fa-solid fa-plus"></i>', () => {
+        handleSaveApp(null);
     });
 
     setupFormInteractions(defaults);
 }
 
-/**
- * @param {HTMLElement} card
- */
 function promptEditApp(card) {
     if (!state.ui.editMode) return;
     const id = parseInt(card.dataset.id);
-
-    // Cast apps to any[] to prevent TS "never" error since state.apps starts empty
-    /** @type {any[]} */
-    const apps = state.apps;
-    const app = apps.find(a => a.id === id);
-
+    const app = state.apps.find(a => a.id === id);
     if (!app) return;
 
-    showModal(`Edit: ${app.name}`, FORM_HTML, '<i class="fa-solid fa-save"></i>', async () => {
-        await handleSaveApp(id);
+    showModal(`Edit: ${app.name}`, FORM_HTML, '<i class="fa-solid fa-save"></i>', () => {
+        handleSaveApp(id);
     });
 
-    // Pre-fill Data
     qs('#appName').value = app.name;
     qs('#appSubtype').value = app.subtype;
 
@@ -156,23 +145,17 @@ function promptEditApp(card) {
     });
 }
 
-/**
- * @param {HTMLElement} card
- */
 function promptDeleteApp(card) {
     if (!state.ui.editMode) return;
     const id = parseInt(card.dataset.id);
 
-    /** @type {any[]} */
-    const apps = state.apps;
-    const app = apps.find(a => a.id === id);
-
     showModal(
         "Delete App",
-        `<p>Delete <strong>${app ? app.name : 'this app'}</strong>?</p>`,
+        `<p>Delete <strong>this app</strong>?</p>`,
         `<i class="fa-solid fa-trash"></i>`,
         async () => {
-            state.apps = state.apps.filter((/** @type {any} */ a) => a.id !== id);
+            const newApps = state.apps.filter(a => a.id !== id);
+            setState('apps', newApps);
             saveGridState();
             await renderGrid();
             showToast("App deleted", "success");
@@ -181,28 +164,21 @@ function promptDeleteApp(card) {
     );
 }
 
-/**
- * @param {Object} initials
- */
 function setupFormInteractions(initials) {
     qs('#appSubtype').onchange = updateFormVisibility;
     qsa('input[name="imgSource"]').forEach(r => r.onchange = updateFormVisibility);
     updateFormVisibility();
 
-    // Color Pickers
     const bgPreview = qs('#modal-bg-preview');
     const bgInput = qs('#modalAppBgColorInput');
     const txtPreview = qs('#modal-text-preview');
     const txtInput = qs('#modalAppTextColorInput');
 
-    // Init Values
     bgInput.value = initials.bgColor;
     bgPreview.style.background = initials.bgColor;
     txtInput.value = initials.textColor;
     txtPreview.style.background = initials.textColor;
 
-    // Interactions
-    // Added empty arrow function () => {} as 3rd arg for onCustom callback to satisfy linter
     bgPreview.onclick = () => openColorPicker(bgPreview, c => { bgInput.value = c; bgPreview.style.background = c; }, () => {});
     bgInput.onchange = (e) => bgPreview.style.background = formatColor(e.target.value);
 
@@ -210,14 +186,12 @@ function setupFormInteractions(initials) {
     txtInput.onchange = (e) => txtPreview.style.background = formatColor(e.target.value);
 }
 
-/**
- * @param {number|null} existingId
- */
 async function handleSaveApp(existingId) {
+    logger.info("handleSaveApp triggered", { existingId });
+
     const name = qs('#appName').value.trim() || "Untitled";
     const subtype = qs('#appSubtype').value;
 
-    // Initialize with all potential properties to satisfy strict type checking
     const data = {
         bgColor: qs('#modalAppBgColorInput').value,
         textColor: qs('#modalAppTextColorInput').value,
@@ -238,12 +212,12 @@ async function handleSaveApp(existingId) {
             if (file) {
                 try {
                     data.url = await saveImage(file);
-                } catch(e) { showToast("Image save failed", "error"); return; }
+                } catch(e) {
+                    showToast("Image save failed", "error");
+                    return;
+                }
             } else if (existingId) {
-                // Keep old image if no new one selected
-                /** @type {any[]} */
-                const apps = state.apps;
-                const old = apps.find(a => a.id === existingId);
+                const old = state.apps.find(a => a.id === existingId);
                 if (old) data.url = old.data.url;
             }
         } else {
@@ -251,14 +225,16 @@ async function handleSaveApp(existingId) {
         }
     }
 
+    // Use a fresh array copy to ensure state reactivity
+    const newApps = [...state.apps];
+
     if (existingId) {
-        const idx = state.apps.findIndex((/** @type {any} */ a) => a.id === existingId);
+        const idx = newApps.findIndex(a => a.id === existingId);
         if (idx !== -1) {
-            state.apps[idx] = { ...state.apps[idx], name, subtype, data };
+            newApps[idx] = { ...newApps[idx], name, subtype, data };
         }
     } else {
-        // Cast state.apps to any[] to push new item
-        /** @type {any[]} */ (state.apps).push({
+        newApps.push({
             id: Date.now(),
             name, subtype, type: "static",
             x: 1, y: 1, cols: subtype==='link'?1:2, rows: subtype==='link'?1:2,
@@ -266,7 +242,10 @@ async function handleSaveApp(existingId) {
         });
     }
 
+    // Explicitly update state and render
+    setState('apps', newApps);
     saveGridState();
     await renderGrid();
+
     showToast(existingId ? "App updated!" : "App added!", "success");
 }

@@ -156,3 +156,103 @@ export function escapeHtml(text) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+/**
+ * Parses raw text into safe HTML with specific features enabled.
+ * - Escapes HTML tags (Security)
+ * - Converts :icon-name: shortcodes into FontAwesome tags
+ */
+export function formatRichText(text) {
+    if (text === undefined || text === null) return '';
+
+    // 1. Sanitize (Basic XSS prevention)
+    let safeText = escapeHtml(text);
+
+    // 2. Parse Icon Shortcodes
+    // Pattern: :icon-name: (e.g. :rocket:, :fa-brands fa-github:)
+    // We reuse the existing resolveIconClass helper!
+    safeText = safeText.replace(/:([a-z0-9-\s]+):/g, (match, iconName) => {
+        // Resolve full class (handles 'github' -> 'fa-brands fa-github')
+        const fullClass = resolveIconClass(iconName.trim());
+        // Return the HTML icon tag
+        return `<i class="${fullClass}"></i>`;
+    });
+
+    return safeText;
+}
+
+/**
+ * Simple Markdown Parser
+ * Converts raw text -> Safe HTML
+ */
+export function parseMarkdown(text) {
+    if (!text) return '';
+
+    // 1. Sanitize
+    let html = String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    // 2. Headers
+    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+    // 3. Bold & Italic
+    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+    html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+
+    // 4. Code Blocks
+    html = html.replace(/`([^`]+)`/gim, '<code>$1</code>');
+
+    // 5. Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank">$1</a>');
+
+    // 6. Icons
+    html = html.replace(/:([a-z0-9-\s]+):/gim, (match, iconName) => {
+        if (typeof resolveIconClass === 'function') {
+            const fullClass = resolveIconClass(iconName.trim());
+            return `<i class="${fullClass}"></i>`;
+        }
+        return match;
+    });
+
+    // --- 7. CHECKBOXES  ---
+
+    // 7A. Checked [x] (With Dash "- [x]")
+    html = html.replace(/^\s*-\s+\[\s*[xX]\s*\]\s?(.*$)/gim,
+        '<div class="task-done"><i class="fa-regular fa-square-check"></i> <span>$1</span></div>');
+
+    // 7B. Checked [x] (No Dash "[x]")
+    html = html.replace(/^\s*\[\s*[xX]\s*\]\s?(.*$)/gim,
+        '<div class="task-done"><i class="fa-regular fa-square-check"></i> <span>$1</span></div>');
+
+    // 7C. Unchecked [ ] (With Dash "- [ ]")
+    html = html.replace(/^\s*-\s+\[\s*\]\s?(.*$)/gim,
+        '<div class="task-todo"><i class="fa-regular fa-square"></i> <span>$1</span></div>');
+
+    // 7D. Unchecked [ ] (No Dash "[ ]")
+    html = html.replace(/^\s*\[\s*\]\s?(.*$)/gim,
+        '<div class="task-todo"><i class="fa-regular fa-square"></i> <span>$1</span></div>');
+
+
+    // --- 8. LISTS (Safe) ---
+    html = html.replace(/^\s*-\s+(.*$)/gim, (match, content) => {
+        // Double check: if content starts with a checkbox div, don't wrap it again
+        if (content.startsWith('<div class="task')) return match;
+        return `<div class="list-item">• ${content}</div>`;
+    });
+
+    // 9. Horizontal Rule
+    html = html.replace(/^\s*---\s*$/gim, '<hr>');
+
+    // 10. Line Breaks
+    html = html.replace(/\n/g, '<br>');
+
+    html = html.replace(/(<\/div>|<\/h[1-6]>|<hr>)\s*<br>/g, '$1');
+
+    return html;
+}

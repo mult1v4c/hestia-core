@@ -11,6 +11,7 @@ import { DEFAULT_THEME, DEFAULT_APPS } from "./constants.js";
 import { initSettingsPanel } from "./ui/settingsPanel.js";
 import { initAppEditor } from "./ui/appEditor.js";
 import { logger } from "./logger.js";
+import { parseMarkdown } from "./utils.js";
 import './apps/appIndex.js';
 
 // Initialize App
@@ -129,37 +130,56 @@ function wireUpNoteEditing() {
     document.addEventListener('dblclick', (e) => {
         if (state.ui.editMode) return;
 
+        // 1. Find the viewer
         const paper = e.target.closest('.note-paper');
         if (!paper) return;
 
         const card = paper.closest('.app-card');
         if (!card) return;
 
-        paper.contentEditable = true;
-        paper.focus();
-        paper.classList.add('editing');
+        const id = parseInt(card.dataset.id);
+        const app = state.apps.find(a => a.id === id);
+        if (!app) return;
+        if (!app.data) app.data = {};
 
+        // 2. CREATE THE EDITOR (Textarea)
+        const textarea = document.createElement('textarea');
+        textarea.className = 'note-editor';
+        textarea.value = app.data.text || ''; // Load RAW text
+        textarea.placeholder = "Type Markdown here... (# Title, **bold**, :icon:)";
+
+        // 3. SWAP: Hide Viewer, Show Editor
+        paper.style.display = 'none';
+        paper.parentElement.appendChild(textarea);
+        textarea.focus();
+
+        // 4. SAVE ON BLUR
         const finish = () => {
-            paper.contentEditable = false;
-            paper.removeEventListener('blur', finish);
+            const newText = textarea.value;
 
-            const newText = paper.innerText; // Get raw text
-            const id = parseInt(card.dataset.id);
-            const app = state.apps.find(a => a.id === id);
+            // Clean up DOM
+            textarea.remove();
+            paper.style.display = ''; // Show viewer again
 
-            if (app) {
-                // Ensure data object exists
-                if (!app.data) app.data = {};
-
-                if (app.data.text !== newText) {
-                    app.data.text = newText;
-                    saveGridState(); // Persist changes
-                    showToast("Note updated", "success");
-                }
+            // Save State
+            if (app.data.text !== newText) {
+                app.data.text = newText;
+                saveGridState();
+                showToast("Note saved", "success");
             }
+
+            // Render Markdown
+            paper.innerHTML = parseMarkdown(newText);
         };
 
-        paper.addEventListener('blur', finish);
+        textarea.addEventListener('blur', finish);
+
+        // Optional: Save on Ctrl+Enter
+        textarea.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+                finish();
+            }
+        });
     });
 }
 

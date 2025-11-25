@@ -31,10 +31,39 @@
 
 /* 4. Text App (Header + Body) */
 .app-type-text {
-    padding: 10px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
     align-items: flex-start;
     color: inherit;
+    overflow: auto;
+    display: block;
+    z-index: 1;
 }
+
+.note-paper {
+    min-height: 100%;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* If Card is 1 Column wide -> Force Paper to 2 Columns wide */
+.app-card[data-cols="1"] .note-paper {
+    min-width: calc(200% + var(--gap-size));
+}
+
+/* If Card is 1 Row high -> Force Paper to 2 Rows high */
+.app-card[data-rows="1"] .note-paper {
+    min-height: calc(200% + var(--gap-size));
+}
+
 .app-type-text h4 {
     margin: 0 0 5px 0;
     color: inherit;

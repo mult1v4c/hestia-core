@@ -9,8 +9,10 @@ export class NoteApp extends BaseApp {
 
         return `
             <div class="app-content app-type-text">
-                <h4>${app.name}</h4>
-                <p>${content}</p>
+                <div class="note-paper">
+                    <h4>${app.name}</h4>
+                    <p>${content}</p>
+                </div>
             </div>`;
     }
 }

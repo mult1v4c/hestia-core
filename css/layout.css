@@ -143,9 +143,11 @@ h1 {
 }
 
 .card-meta {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
     font-size: 0.7rem;
     color: var(--text-muted);
-    margin-top: 5px;
     pointer-events: none;
     opacity: 0;
 }

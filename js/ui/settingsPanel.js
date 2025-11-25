@@ -4,9 +4,10 @@ import { applyTheme, applyBase16Theme, applyCustomPreset, renderPresetOptions, s
 import { qs, qsa } from "../dom.js";
 import { showToast } from "./toasts.js";
 import { openColorPicker } from "./colorPicker.js";
-import { formatColor } from "../utils.js";
+import { formatColor, toHex } from "../utils.js";
 import { renderGridLines, sanitizeGrid } from "../grid.js";
 import { logger } from "../logger.js";
+import { DEFAULT_THEME } from "../constants.js"; // Import Defaults directly
 
 export function initSettingsPanel() {
     const settingsBtn = qs('#settingsBtn');
@@ -36,8 +37,9 @@ export function initSettingsPanel() {
 
     renderPresetOptions();
     wireUpInputs();
-    // Delay initial sync slightly to ensure DOM and CSS vars are fully loaded
-    setTimeout(syncInputs, 50);
+
+    // Wait a tick for DOM updates
+    requestAnimationFrame(syncInputs);
 }
 
 function toggleSettingsPanel() {
@@ -49,7 +51,7 @@ function toggleSettingsPanel() {
         showToast("Settings saved!", "success");
     } else {
         panel.classList.add('active');
-        syncInputs();
+        requestAnimationFrame(syncInputs);
     }
 }
 
@@ -141,12 +143,18 @@ function syncInputs() {
             val = input.getAttribute('data-default');
         }
 
-        // 3. Try CSS Variable (The Ultimate Fallback)
-        // If val is still missing or empty, grab it from the live CSS variable
+        // 3. Try Hardcoded Default Constants (New Safety Net)
+        if ((!val || val === '') && input.type !== 'checkbox') {
+             val = DEFAULT_THEME[key];
+        }
+
+        // 4. Try CSS Variable (Ultimate Fallback)
         if ((!val || val === '') && input.type !== 'checkbox') {
              const cssVar = '--' + key.replace(/([A-Z])/g, "-$1").toLowerCase();
              const computed = rootStyle.getPropertyValue(cssVar).trim();
-             if (computed) val = computed;
+             if (computed && computed !== '') {
+                 val = computed;
+             }
         }
 
         if (val !== undefined && val !== null) {
@@ -158,19 +166,20 @@ function syncInputs() {
 
             const preview = qs(`#preview-${key}`);
             if (preview) {
-                // If val is still empty here, formatColor() forces black.
-                // But the CSS fallback above should have caught it.
+                // formatColor handles RGB strings now, so this is safe
                 const color = formatColor(val);
                 preview.style.backgroundColor = color;
             }
 
             const native = qs(`#input-${key}.hidden-native-picker`);
-            if (native) native.value = formatColor(val);
+            if (native) {
+                // Native picker NEEDS Hex
+                native.value = toHex(val);
+            }
 
             const resetBtn = qs(`#reset-${key}`);
             if (resetBtn) {
                 const def = input.getAttribute('data-default');
-                // Compare values safely
                 const isDiff = input.type === 'checkbox' ?
                     (input.checked !== (def === 'true')) :
                     (String(val).trim().toLowerCase() !== String(def || '').trim().toLowerCase());

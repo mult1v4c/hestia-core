@@ -15,10 +15,44 @@ export function generateId(prefix = "id") {
 // COLOR & CSS UTILITIES
 // -----------------------------
 
-// Ensure color has a hash prefix
+// Ensure color is a valid CSS string
 export function formatColor(c) {
   if (!c) return '#000000';
-  return c.startsWith('#') ? c : '#' + c;
+  const str = String(c).trim();
+
+  // If it's already a valid format (Hex, RGB, HSL, var), return as is
+  if (str.startsWith('#') || str.startsWith('rgb') || str.startsWith('hsl') || str.startsWith('var')) {
+      return str;
+  }
+
+  // Otherwise assume it's a raw hex needing a hash
+  return '#' + str;
+}
+
+// Helper to force HEX for <input type="color">
+export function toHex(c) {
+    if (!c) return '#000000';
+    const str = String(c).trim();
+
+    if (str.startsWith('#')) return str;
+
+    // If it's rgb(r, g, b), convert to hex
+    if (str.startsWith('rgb')) {
+        const sep = str.indexOf(",") > -1 ? "," : " ";
+        const rgb = str.substr(4).split(")")[0].split(sep);
+
+        let r = (+rgb[0]).toString(16),
+            g = (+rgb[1]).toString(16),
+            b = (+rgb[2]).toString(16);
+
+        if (r.length === 1) r = "0" + r;
+        if (g.length === 1) g = "0" + g;
+        if (b.length === 1) b = "0" + b;
+
+        return "#" + r + g + b;
+    }
+
+    return '#' + str; // Fallback
 }
 
 // Ensure value has 'px' if it's a number

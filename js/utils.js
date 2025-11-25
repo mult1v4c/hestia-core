@@ -77,58 +77,6 @@ export function normalizeHex(hex) {
   return hex.toLowerCase();
 }
 
-// -----------------------------
-// FILE HANDLING
-// -----------------------------
-
-// Convert file to Base64 string with resize compression (Max 800px)
-export function convertFileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-
-      img.onload = () => {
-        // 1. Create a canvas
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-
-        // 2. Calculate new size (Max 800px width/height)
-        const maxSize = 800;
-        if (width > height) {
-          if (width > maxSize) {
-            height *= maxSize / width;
-            width = maxSize;
-          }
-        } else {
-          if (height > maxSize) {
-            width *= maxSize / height;
-            height = maxSize;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        // 3. Draw image on canvas
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // 4. Compress to JPEG at 70% quality
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        resolve(compressedDataUrl);
-      };
-
-      img.onerror = (err) => reject(err);
-    };
-
-    reader.onerror = (error) => reject(error);
-  });
-}
 
 // -----------------------------
 // EVENT HELPERS
@@ -193,4 +141,18 @@ export function resolveIconClass(input) {
     // 2. Solid (Common UI elements)
     // Default to solid for everything else
     return `fa-solid fa-${lower}`;
+}
+
+/**
+ * Escapes HTML characters to prevent XSS and layout breaking.
+ * Use this whenever you render user-generated text.
+ */
+export function escapeHtml(text) {
+    if (text === undefined || text === null) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }

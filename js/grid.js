@@ -5,7 +5,7 @@ import { createEl, qs, qsa } from "./dom.js";
 import { showToast } from "./ui/toasts.js";
 
 // IMPORT THE REGISTRY
-import { renderAppContent, mountApp } from "./appRegistry.js";
+import { registry } from "./registry.js";
 
 let cachedApps = [];
 
@@ -34,9 +34,6 @@ export async function renderGrid() {
         const el = await createAppElement(app);
         dashboard.appendChild(el);
 
-        // Lifecycle Hook: Mount
-        // Allows apps to attach custom listeners after being added to DOM
-        mountApp(el, app);
     }
 }
 
@@ -63,8 +60,20 @@ async function createAppElement(app) {
         }
     });
 
-    // DELEGATE CONTENT GENERATION TO REGISTRY
-    const innerHTML = await renderAppContent(app);
+    // --- FIX: USE NEW REGISTRY LOGIC ---
+    // 1. Get the App Definition
+    const appDef = registry.get(app.subtype);
+
+    if (!appDef) {
+        console.error(`App type not found: ${app.subtype}`);
+        el.innerHTML = 'Unknown App';
+        return el;
+    }
+
+    // 2. Instantiate and Render
+    const appInstance = new appDef.Class();
+    const innerHTML = await appInstance.render(app);
+    // -----------------------------------
 
     el.innerHTML = `
         ${innerHTML}
@@ -73,6 +82,10 @@ async function createAppElement(app) {
         <div class="edit-btn" title="Edit App"><i class="fa-solid fa-pencil"></i></div>
         <div class="delete-btn" title="Delete App"><i class="fa-solid fa-trash"></i></div>
     `;
+
+    if (appInstance.onMount) {
+        setTimeout(() => appInstance.onMount(el, app), 0);
+    }
 
     return el;
 }

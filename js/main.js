@@ -11,15 +11,7 @@ import { DEFAULT_THEME, DEFAULT_APPS } from "./constants.js";
 import { initSettingsPanel } from "./ui/settingsPanel.js";
 import { initAppEditor } from "./ui/appEditor.js";
 import { logger } from "./logger.js";
-
-/**
- * Import Apps
- */
-
-import './LinkApp.js';
-import './NoteApp.js';
-import './ImageApp.js';
-// Add apps here to register
+import './apps/appIndex.js';
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
@@ -78,7 +70,7 @@ function wireUpToolbar() {
              showModal(
                 "Clear Dashboard",
                 "<p>Are you sure you want to remove <strong>ALL</strong> apps? This cannot be undone.</p>",
-                '<i class="fa-solid fa-broom"></i>',
+                '<i class="fa-solid fa-eraser"></i>',
                 async () => {
                     setState('apps', []);
                     saveState();

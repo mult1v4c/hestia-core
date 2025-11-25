@@ -7,7 +7,7 @@ import { openColorPicker } from "./colorPicker.js";
 import { formatColor, toHex } from "../utils.js";
 import { renderGridLines, sanitizeGrid } from "../grid.js";
 import { logger } from "../logger.js";
-import { DEFAULT_THEME } from "../constants.js"; // Import Defaults directly
+import { DEFAULT_THEME } from "../constants.js";
 
 export function initSettingsPanel() {
     const settingsBtn = qs('#settingsBtn');
@@ -105,6 +105,37 @@ function wireUpInputs() {
     });
 }
 
+/**
+ * INTELLIGENT DEFAULT RESOLVER
+ * Finds the correct default value based on the ACTIVE PALETTE.
+ */
+function resolveThemeDefault(key) {
+    const theme = state.settings.theme;
+    const activePal = theme.activePalette;
+
+    // 1. If we have an active Base16 palette, look up the color from there
+    if (activePal && window.HESTIA_PALETTES && window.HESTIA_PALETTES[activePal]) {
+        const palette = window.HESTIA_PALETTES[activePal];
+
+        // Map Semantic Key -> Base16 Key (Same mapping as in theme.js)
+        const mapping = {
+            'bgCanvas': 'base00', 'bgSurface': 'base01', 'bgHighlight': 'base02',
+            'borderDim': 'base02', 'borderBright': 'base03',
+            'textMain': 'base05', 'textMuted': 'base04', 'textFaint': 'base03', 'textInverse': 'base00',
+            'brandPrimary': 'base0B', 'brandSecondary': 'base0D', 'brandTertiary': 'base0E',
+            'statusError': 'base08', 'statusWarning': 'base09', 'statusSuccess': 'base0B'
+        };
+
+        const baseKey = mapping[key];
+        if (baseKey && palette[baseKey]) {
+            return formatColor(palette[baseKey]);
+        }
+    }
+
+    // 2. If no palette is active (or key is geometry/font), use the System Default
+    return DEFAULT_THEME[key];
+}
+
 function updateSetting(key, value) {
     if (typeof value === 'string' && !isNaN(value) && value.trim() !== '' &&
        (key.includes('Size') || key.includes('Padding') || key.includes('Radius'))) {
@@ -120,73 +151,86 @@ function updateSetting(key, value) {
 }
 
 function resetSetting(key) {
+    // FIX: Use the smart resolver instead of hardcoded constant
+    let def = resolveThemeDefault(key);
+
+    // Fallback to attribute if logic fails (rare)
+    if (def === undefined) {
+        const input = qs(`#input-${key}`);
+        if (input) def = input.getAttribute('data-default');
+    }
+
+    if (def === undefined) return;
+
+    // Handle boolean toggles vs strings
     const input = qs(`#input-${key}`);
-    const def = input.getAttribute('data-default');
-    if (!def) return;
-    const isBool = input.type === 'checkbox';
-    updateSetting(key, isBool ? (def === 'true') : def);
+    const isBool = input && input.type === 'checkbox';
+
+    updateSetting(key, isBool ? (String(def) === 'true') : def);
 }
 
 function syncInputs() {
     const theme = state.settings.theme;
     const rootStyle = getComputedStyle(document.documentElement);
 
+    // We loop over ALL inputs
     qsa('[id^="input-"]').forEach(input => {
-        if (input.classList.contains('hidden-native-picker')) return;
-
         const key = input.id.replace('input-', '');
         let val = theme[key];
 
-        // 1. Try State
+        // 1. Resolve Value (State -> Default Logic -> CSS)
         if (val === undefined || val === null) {
-            // 2. Try Data Default
-            val = input.getAttribute('data-default');
+            val = resolveThemeDefault(key);
         }
 
-        // 3. Try Hardcoded Default Constants (New Safety Net)
         if ((!val || val === '') && input.type !== 'checkbox') {
-             val = DEFAULT_THEME[key];
+             // Fallback to data-default for geometry if needed
+             val = input.getAttribute('data-default');
         }
 
-        // 4. Try CSS Variable (Ultimate Fallback)
         if ((!val || val === '') && input.type !== 'checkbox') {
              const cssVar = '--' + key.replace(/([A-Z])/g, "-$1").toLowerCase();
              const computed = rootStyle.getPropertyValue(cssVar).trim();
-             if (computed && computed !== '') {
-                 val = computed;
-             }
+             if (computed && computed !== '') val = computed;
         }
 
+        // 2. Update Input Element
         if (val !== undefined && val !== null) {
             if (input.type === 'checkbox') {
-                input.checked = val;
+                input.checked = (String(val) === 'true');
+            } else if (input.type === 'color') {
+                input.value = toHex(val);
             } else {
                 input.value = val;
             }
+        }
 
-            const preview = qs(`#preview-${key}`);
-            if (preview) {
-                // formatColor handles RGB strings now, so this is safe
-                const color = formatColor(val);
-                preview.style.backgroundColor = color;
+        // 3. Update Preview Div
+        const preview = qs(`#preview-${key}`);
+        if (preview && val) {
+            preview.style.backgroundColor = formatColor(val);
+        }
+
+        // 4. Update Reset Button Visibility
+        const resetBtn = qs(`#reset-${key}`);
+        if (resetBtn) {
+            // FIX: Compare Current Value vs Smart Default
+            let def = resolveThemeDefault(key);
+
+            if (def === undefined) def = input.getAttribute('data-default');
+
+            let isDiff = false;
+            if (input.type === 'checkbox') {
+                 isDiff = (input.checked !== (String(def) === 'true'));
+            } else {
+                const currentVal = input.type === 'color' ? toHex(val).toLowerCase() : String(val).trim().toLowerCase();
+                const defaultVal = input.type === 'color' ? toHex(def).toLowerCase() : String(def || '').trim().toLowerCase();
+
+                isDiff = (currentVal !== defaultVal);
             }
 
-            const native = qs(`#input-${key}.hidden-native-picker`);
-            if (native) {
-                // Native picker NEEDS Hex
-                native.value = toHex(val);
-            }
-
-            const resetBtn = qs(`#reset-${key}`);
-            if (resetBtn) {
-                const def = input.getAttribute('data-default');
-                const isDiff = input.type === 'checkbox' ?
-                    (input.checked !== (def === 'true')) :
-                    (String(val).trim().toLowerCase() !== String(def || '').trim().toLowerCase());
-
-                if (isDiff) resetBtn.classList.add('visible');
-                else resetBtn.classList.remove('visible');
-            }
+            if (isDiff) resetBtn.classList.add('visible');
+            else resetBtn.classList.remove('visible');
         }
     });
 }

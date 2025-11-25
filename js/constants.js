@@ -14,7 +14,7 @@ export const DEFAULT_THEME = {
 
     // UI Toggles
     outlines: true,
-    shadow: false,
+    shadow: true,
     titleBarIcon: "fa-fire",
     titleBarText: "HESTIA",
 

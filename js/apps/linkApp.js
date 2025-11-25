@@ -18,7 +18,6 @@ export class LinkApp extends BaseApp {
 
 registry.register('link', LinkApp, {
     label: 'Link Button',
-    category: 'static',
     defaultSize: { cols: 1, rows: 1 },
     settings: [
         { name: 'url', label: 'URL', type: 'text', placeholder: 'https://...' },
@@ -29,8 +28,8 @@ registry.register('link', LinkApp, {
             align-items: center; justify-content: center; text-decoration: none;
             color: inherit; height: 100%; width: 100%; transition: color 0.2s;
         }
-        .app-type-link:hover { color: var(--brand-primary); }
+        .app-card .app-type-link:hover { transform: scale(1.1); }
         .app-type-link i { font-size: 2.5rem; margin-bottom: 10px; }
-        .app-type-link span { font-size: 1rem; font-weight: bold; text-align: center; }
+        .app-type-link span { font-size: 1rem; text-align: center; }
     `
 });

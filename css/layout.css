@@ -203,5 +203,5 @@ h1 {
     border-radius: 4px;
     font-family: inherit;
     height: 30px;
-    width: 130px;
+    width: 130px !important;
 }

@@ -84,8 +84,8 @@
     padding: 8px;
     border-radius: 4px;
     font-family: inherit;
-    margin-top: 5px;
 }
+
 .modal-input:focus { outline: none; border-color: var(--brand-primary); }
 
 

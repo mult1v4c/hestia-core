@@ -23,10 +23,8 @@ registry.register('note', NoteApp, {
     label: 'Sticky Note',
     defaultSize: { cols: 2, rows: 2 },
     settings: [
-        // 1. Add the new Title setting here
         { name: 'title', label: 'Title', type: 'text', placeholder: 'My Note' },
-        { name: 'text', label: 'Content', type: 'textarea', placeholder: 'Write something...' },
-        { name: 'bgColor', label: 'Background Color', type: 'color', defaultValue: '#fef3c7' }
+        { name: 'bgColor', label: 'Background Color', type: 'color', defaultValue: 'var(--bg-surface)' }
     ],
     css: `
         .app-type-note {
@@ -57,7 +55,13 @@ registry.register('note', NoteApp, {
             overflow-y: auto;
             white-space: pre-wrap;
             font-size: 0.9rem;
+            outline: none;
             line-height: 1.4;
+            cursor: text;
+        }
+
+        .note-paper:focus {
+            background: rgba(0,0,0,0.05);
         }
 
         /* Responsive expansion logic */

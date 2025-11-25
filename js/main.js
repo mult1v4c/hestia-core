@@ -53,6 +53,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 6. Wire up Inline Renaming (Feature Parity)
     wireUpRenaming();
 
+    wireUpNoteEditing();
+
     logger.success("Hestia-Core: Ready.");
 
     // Expose for debugging
@@ -94,24 +96,74 @@ function wireUpToolbar() {
     };
 }
 
+// Updated to support the new NoteApp class name
 function wireUpRenaming() {
-    // Feature Parity: Double click text to rename app in Edit Mode
     document.addEventListener('dblclick', (e) => {
         if (!state.ui.editMode) return;
 
         // Find a title or name element inside an app card
+        // Updated: .app-type-text h4 -> .app-type-note h4
         const titleEl = e.target.closest('.card-title') ||
                         e.target.closest('.app-type-link span') ||
-                        e.target.closest('.app-type-text h4');
+                        e.target.closest('.app-type-note h4');
 
         if (titleEl && titleEl.closest('.app-card')) {
             const card = titleEl.closest('.app-card');
-            makeContentEditable(titleEl, card);
+
+            // Logic to determine WHAT we are renaming
+            // If it's a note header, we update data.title. Otherwise we update app.name
+            const isNoteHeader = titleEl.matches('.app-type-note h4');
+
+            makeContentEditable(titleEl, card, (newText, app) => {
+                if (isNoteHeader) {
+                    app.data.title = newText; // Update Note Title
+                } else {
+                    app.name = newText;       // Update Generic App Name
+                }
+            });
         }
     });
 }
 
-function makeContentEditable(el, card) {
+function wireUpNoteEditing() {
+    document.addEventListener('dblclick', (e) => {
+        if (state.ui.editMode) return;
+
+        const paper = e.target.closest('.note-paper');
+        if (!paper) return;
+
+        const card = paper.closest('.app-card');
+        if (!card) return;
+
+        paper.contentEditable = true;
+        paper.focus();
+        paper.classList.add('editing');
+
+        const finish = () => {
+            paper.contentEditable = false;
+            paper.removeEventListener('blur', finish);
+
+            const newText = paper.innerText; // Get raw text
+            const id = parseInt(card.dataset.id);
+            const app = state.apps.find(a => a.id === id);
+
+            if (app) {
+                // Ensure data object exists
+                if (!app.data) app.data = {};
+
+                if (app.data.text !== newText) {
+                    app.data.text = newText;
+                    saveGridState(); // Persist changes
+                    showToast("Note updated", "success");
+                }
+            }
+        };
+
+        paper.addEventListener('blur', finish);
+    });
+}
+
+function makeContentEditable(el, card, customSaveCallback) {
     el.contentEditable = true;
     el.focus();
     el.classList.add('editing');
@@ -122,15 +174,22 @@ function makeContentEditable(el, card) {
         el.removeEventListener('blur', finish);
         el.removeEventListener('keydown', onKey);
 
-        // Save new name
-        const newName = el.innerText.trim();
+        const newText = el.innerText.trim();
         const id = parseInt(card.dataset.id);
         const app = state.apps.find(a => a.id === id);
 
-        if (app && newName !== app.name) {
-            app.name = newName;
-            saveGridState(); // Persist to storage
-            showToast("Renamed app", "success");
+        if (app) {
+            if (customSaveCallback) {
+                // Use custom logic (like for Note Titles)
+                customSaveCallback(newText, app);
+                saveGridState();
+                showToast("Updated", "success");
+            } else if (newText !== app.name) {
+                // Default: Update App Name
+                app.name = newText;
+                saveGridState();
+                showToast("Renamed app", "success");
+            }
         }
     };
 

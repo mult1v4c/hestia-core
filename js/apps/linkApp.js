@@ -21,7 +21,7 @@ registry.register('link', LinkApp, {
     defaultSize: { cols: 1, rows: 1 },
     settings: [
         { name: 'url', label: 'URL', type: 'text', placeholder: 'https://...' },
-        { name: 'icon', label: 'Icon Class', type: 'text', placeholder: 'e.g. fa-brands fa-github' }
+        { name: 'icon', label: 'Icon Class', type: 'text', placeholder: 'FontAwesome slug format (e.g. fa-fire)' }
     ],
     css: `
         .app-type-link {

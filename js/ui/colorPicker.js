@@ -1,15 +1,8 @@
-// js/ui/colorPicker.js
 import { state } from "../state.js";
 import { formatColor } from "../utils.js";
 import { createEl } from "../dom.js";
 import { openPopover, closePopover } from "./popover.js";
 
-/**
- * Open the Base16 color grid.
- * @param {HTMLElement} targetEl - The element that triggered this (preview swatch)
- * @param {Function} onSelect - Callback(hexColor) when user picks a color
- * @param {Function} onCustom - Callback() when user clicks "Custom..."
- */
 export function openColorPicker(targetEl, onSelect, onCustom) {
     const palette = getActivePaletteColors();
 
@@ -44,7 +37,7 @@ export function openColorPicker(targetEl, onSelect, onCustom) {
         on: {
             click: () => {
                 closePopover();
-                if (onCustom) onCustom();
+                if (onCustom) onCustom(); // Trigger the custom action
             }
         }
     });
@@ -52,13 +45,12 @@ export function openColorPicker(targetEl, onSelect, onCustom) {
     footer.appendChild(customBtn);
     container.appendChild(footer);
 
-    openPopover(targetEl, container, { offsetLeft: -75 }); // Centerish align
+    openPopover(targetEl, container, { offsetLeft: -75 });
 }
 
-// Helper: Extract colors from the currently active Base16 palette
 function getActivePaletteColors() {
     const activeKey = state.settings.theme.activePalette;
-    const palettes = window.HESTIA_PALETTES || {}; // Loaded via script in HTML for now
+    const palettes = window.HESTIA_PALETTES || {};
 
     if (activeKey && palettes[activeKey]) {
         const p = palettes[activeKey];

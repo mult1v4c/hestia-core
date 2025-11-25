@@ -6,6 +6,7 @@ import { showToast } from "./toasts.js";
 import { openColorPicker } from "./colorPicker.js";
 import { formatColor } from "../utils.js";
 import { renderGridLines, sanitizeGrid } from "../grid.js";
+import { logger } from "../logger.js";
 
 export function initSettingsPanel() {
     const settingsBtn = qs('#settingsBtn');
@@ -35,7 +36,8 @@ export function initSettingsPanel() {
 
     renderPresetOptions();
     wireUpInputs();
-    syncInputs();
+    // Delay initial sync slightly to ensure DOM and CSS vars are fully loaded
+    setTimeout(syncInputs, 50);
 }
 
 function toggleSettingsPanel() {
@@ -69,7 +71,10 @@ function wireUpInputs() {
                 updateSetting(key, color);
             }, () => {
                 const native = qs(`#input-${key}.hidden-native-picker`);
-                if (native) native.click();
+                if (native) {
+                    if (typeof native.showPicker === 'function') native.showPicker();
+                    else native.click();
+                }
             });
         };
     });
@@ -122,6 +127,7 @@ function resetSetting(key) {
 
 function syncInputs() {
     const theme = state.settings.theme;
+    const rootStyle = getComputedStyle(document.documentElement);
 
     qsa('[id^="input-"]').forEach(input => {
         if (input.classList.contains('hidden-native-picker')) return;
@@ -129,13 +135,21 @@ function syncInputs() {
         const key = input.id.replace('input-', '');
         let val = theme[key];
 
-        // Force fallback if value is missing in state
-        if (val === undefined) {
-            // Try to get default from data-attribute, else empty string
-            val = input.getAttribute('data-default') || '';
+        // 1. Try State
+        if (val === undefined || val === null) {
+            // 2. Try Data Default
+            val = input.getAttribute('data-default');
         }
 
-        if (val !== undefined) {
+        // 3. Try CSS Variable (The Ultimate Fallback)
+        // If val is still missing or empty, grab it from the live CSS variable
+        if ((!val || val === '') && input.type !== 'checkbox') {
+             const cssVar = '--' + key.replace(/([A-Z])/g, "-$1").toLowerCase();
+             const computed = rootStyle.getPropertyValue(cssVar).trim();
+             if (computed) val = computed;
+        }
+
+        if (val !== undefined && val !== null) {
             if (input.type === 'checkbox') {
                 input.checked = val;
             } else {
@@ -144,7 +158,10 @@ function syncInputs() {
 
             const preview = qs(`#preview-${key}`);
             if (preview) {
-                preview.style.backgroundColor = formatColor(val);
+                // If val is still empty here, formatColor() forces black.
+                // But the CSS fallback above should have caught it.
+                const color = formatColor(val);
+                preview.style.backgroundColor = color;
             }
 
             const native = qs(`#input-${key}.hidden-native-picker`);
@@ -153,7 +170,11 @@ function syncInputs() {
             const resetBtn = qs(`#reset-${key}`);
             if (resetBtn) {
                 const def = input.getAttribute('data-default');
-                const isDiff = input.type === 'checkbox' ? (input.checked !== (def === 'true')) : (String(val) !== def);
+                // Compare values safely
+                const isDiff = input.type === 'checkbox' ?
+                    (input.checked !== (def === 'true')) :
+                    (String(val).trim().toLowerCase() !== String(def || '').trim().toLowerCase());
+
                 if (isDiff) resetBtn.classList.add('visible');
                 else resetBtn.classList.remove('visible');
             }

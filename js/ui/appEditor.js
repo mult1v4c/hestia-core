@@ -4,10 +4,12 @@ import { showModal } from "./modal.js";
 import { showToast } from "./toasts.js";
 import { saveImage } from "../imageStore.js";
 import { openColorPicker } from "./colorPicker.js";
-import { renderGrid, saveGridState } from "../grid.js";
+import { renderGrid } from "../grid.js";
+import { saveState } from "../storage.js";
 import { formatColor } from "../utils.js";
 import { logger } from "../logger.js";
 
+// ... (FORM_HTML remains the same) ...
 const FORM_HTML = `
     <div class="form-group" style="display:flex; flex-direction:column; gap:10px;">
         <input type="text" id="appName" class="modal-input" placeholder="App Name">
@@ -24,6 +26,8 @@ const FORM_HTML = `
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="color-preview" id="modal-bg-preview" style="background:var(--bg-surface)"></div>
                     <input type="text" id="modalAppBgColorInput" class="modal-input-color" placeholder="#HEX">
+                    <!-- Hidden Native Picker for Modal -->
+                    <input type="color" id="native-modal-bg" style="display:none;">
                 </div>
             </div>
             <div style="flex:1;">
@@ -31,6 +35,8 @@ const FORM_HTML = `
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="color-preview" id="modal-text-preview" style="background:var(--text-main)"></div>
                     <input type="text" id="modalAppTextColorInput" class="modal-input-color" placeholder="#HEX">
+                    <!-- Hidden Native Picker for Modal -->
+                    <input type="color" id="native-modal-text" style="display:none;">
                 </div>
             </div>
         </div>
@@ -156,7 +162,7 @@ function promptDeleteApp(card) {
         async () => {
             const newApps = state.apps.filter(a => a.id !== id);
             setState('apps', newApps);
-            saveGridState();
+            saveState();
             await renderGrid();
             showToast("App deleted", "success");
         },
@@ -174,16 +180,65 @@ function setupFormInteractions(initials) {
     const txtPreview = qs('#modal-text-preview');
     const txtInput = qs('#modalAppTextColorInput');
 
+    // Hidden native pickers (added in HTML template above)
+    const nativeBg = qs('#native-modal-bg');
+    const nativeText = qs('#native-modal-text');
+
+    // Init Values
     bgInput.value = initials.bgColor;
     bgPreview.style.background = initials.bgColor;
     txtInput.value = initials.textColor;
     txtPreview.style.background = initials.textColor;
 
-    bgPreview.onclick = () => openColorPicker(bgPreview, c => { bgInput.value = c; bgPreview.style.background = c; }, () => {});
-    bgInput.onchange = (e) => bgPreview.style.background = formatColor(e.target.value);
+    // Sync Native inputs to current values
+    if(nativeBg) nativeBg.value = formatColor(initials.bgColor);
+    if(nativeText) nativeText.value = formatColor(initials.textColor);
 
-    txtPreview.onclick = () => openColorPicker(txtPreview, c => { txtInput.value = c; txtPreview.style.background = c; }, () => {});
-    txtInput.onchange = (e) => txtPreview.style.background = formatColor(e.target.value);
+    // Interactions - Background
+    bgPreview.onclick = () => openColorPicker(bgPreview,
+        (c) => { // On Select Swatch
+            bgInput.value = c;
+            bgPreview.style.background = c;
+            if(nativeBg) nativeBg.value = formatColor(c);
+        },
+        () => { // On Custom
+            if(nativeBg) nativeBg.click();
+        }
+    );
+    // Sync text input to preview
+    bgInput.onchange = (e) => {
+        const val = formatColor(e.target.value);
+        bgPreview.style.background = val;
+        if(nativeBg) nativeBg.value = val;
+    };
+    // Sync native picker to text input/preview
+    if(nativeBg) nativeBg.oninput = (e) => {
+        const val = e.target.value;
+        bgInput.value = val;
+        bgPreview.style.background = val;
+    };
+
+    // Interactions - Text Color
+    txtPreview.onclick = () => openColorPicker(txtPreview,
+        (c) => {
+            txtInput.value = c;
+            txtPreview.style.background = c;
+            if(nativeText) nativeText.value = formatColor(c);
+        },
+        () => {
+            if(nativeText) nativeText.click();
+        }
+    );
+    txtInput.onchange = (e) => {
+        const val = formatColor(e.target.value);
+        txtPreview.style.background = val;
+        if(nativeText) nativeText.value = val;
+    };
+    if(nativeText) nativeText.oninput = (e) => {
+        const val = e.target.value;
+        txtInput.value = val;
+        txtPreview.style.background = val;
+    };
 }
 
 async function handleSaveApp(existingId) {
@@ -225,7 +280,6 @@ async function handleSaveApp(existingId) {
         }
     }
 
-    // Use a fresh array copy to ensure state reactivity
     const newApps = [...state.apps];
 
     if (existingId) {
@@ -242,10 +296,8 @@ async function handleSaveApp(existingId) {
         });
     }
 
-    // Explicitly update state and render
     setState('apps', newApps);
-    saveGridState();
+    saveState();
     await renderGrid();
-
     showToast(existingId ? "App updated!" : "App added!", "success");
 }

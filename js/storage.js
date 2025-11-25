@@ -13,16 +13,20 @@ export function loadState() {
       const parsed = JSON.parse(raw);
 
       // Deep merge with state to ensure structure
-      // We prioritize saved data, but if a key is missing, we keep the default from state.js
       deepMerge(state, parsed);
 
-      // Special check: If apps array is missing in saved data, use defaults
-      if (!parsed.apps) {
-          state.apps = DEFAULT_APPS;
+      // Safety Check: If apps array is empty/missing in saved data, force defaults
+      if (!parsed.apps || !Array.isArray(parsed.apps) || parsed.apps.length === 0) {
+          // Only override if it's truly empty and we expect defaults (e.g. first load)
+          // If user intentionally deleted all apps, we might want to respect that.
+          // But for now, assuming "missing" means error.
+          if (!parsed.apps) state.apps = [...DEFAULT_APPS];
       }
 
-      // Ensure settings exist
-      if (!state.settings.theme) state.settings.theme = DEFAULT_THEME;
+      // Safety Check: Theme
+      if (!state.settings.theme || Object.keys(state.settings.theme).length === 0) {
+          state.settings.theme = { ...DEFAULT_THEME };
+      }
 
       console.info("[storage] State loaded.");
       return state;
@@ -50,16 +54,18 @@ export function loadState() {
     console.warn("[storage] No save found. Loading defaults.");
     state.apps = [...DEFAULT_APPS]; // Clone array
     state.settings.theme = { ...DEFAULT_THEME };
+
     saveState(); // Save immediately so we have a baseline
     return state;
 
   } catch (err) {
     console.error("[storage] Failed to load state.", err);
+    // Fallback on error
+    state.apps = [...DEFAULT_APPS];
+    state.settings.theme = { ...DEFAULT_THEME };
     return state;
   }
 }
-
-// ... (saveState, resetState, export/import remain the same but added below for completeness) ...
 
 export function saveState() {
   try {

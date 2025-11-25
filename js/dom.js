@@ -1,8 +1,6 @@
-//
-// dom.js
+// js/dom.js
 // Utility helpers for DOM interaction and rendering.
 // No side effects. Pure helpers.
-//
 
 // -------------------------
 // Query Helpers
@@ -20,6 +18,17 @@ export function $(selector, parent = document) {
  */
 export function $all(selector, parent = document) {
     return Array.from(parent.querySelectorAll(selector));
+}
+
+// Aliases for consistency with the refactor map
+export const qs = $;
+export const qsa = $all;
+
+/**
+ * Shorthand for getElementById (fastest)
+ */
+export function getById(id) {
+    return document.getElementById(id);
 }
 
 // -------------------------
@@ -81,7 +90,9 @@ export function renderInto(el, content) {
  * Append multiple children
  */
 export function appendChildren(parent, ...children) {
-    children.forEach(child => parent.appendChild(child));
+    children.forEach(child => {
+        if (child) parent.appendChild(child);
+    });
 }
 
 // -------------------------

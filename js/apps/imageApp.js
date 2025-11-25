@@ -6,6 +6,7 @@ export class ImageApp extends BaseApp {
     async render(app) {
         const data = app.data || {};
         let src = data.src || '';
+        const fitMode = data.fit || 'cover';
 
         // 1. Resolve Database Images
         if (src.startsWith('img_')) {
@@ -29,7 +30,7 @@ export class ImageApp extends BaseApp {
         // 3. Image State
         return `
             <div class="app-content app-type-image">
-                <img src="${src}" class="app-image-absolute" alt="${app.name || 'Image'}" loading="lazy">
+                <img src="${src}" class="app-image-absolute ${fitMode}" alt="${app.name || 'Image'}" loading="lazy">
             </div>`;
     }
 }
@@ -40,16 +41,36 @@ registry.register('image', ImageApp, {
     defaultSize: { cols: 2, rows: 2 },
     settings: [
         // We use a special custom type 'image-source' here now
-        { name: 'src', label: 'Image Source', type: 'image-source' }
+        { name: 'src', label: 'Image Source', type: 'image-source' },
+        { name: 'fit',
+            label: 'Display Style',
+            type: 'select',
+            options: [
+                { label: 'Photo (Fill Area)', value: 'cover' },
+                { label: 'Logo / SVG (Fit w/ Padding)', value: 'contain' }
+            ],
+            defaultValue: 'cover'
+        }
     ],
     css: `
         .app-image-absolute {
             position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
-            object-fit: cover;
             z-index: 0; pointer-events: none;
             border-radius: var(--radius);
         }
+
+        .app-image-absolute.cover {
+            object-fit: cover;
+            padding: 0;
+        }
+
+        .app-image-absolute.contain {
+            object-fit: contain;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
         .app-type-image.empty {
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;

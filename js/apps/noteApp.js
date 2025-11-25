@@ -98,7 +98,7 @@ registry.register('note', NoteApp, {
         .note-paper h2 { font-size: 1.2em; margin: 0.5em 0; }
         .note-paper h3 { font-size: 1.1em; margin: 0.5em 0; font-weight: bold; }
         .note-paper code { background: rgb(from var(--base04) r g b / 20%); padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-        .note-paper a { text-decoration: none; color: inherit; border-bottom: 1px solid; border-bottom-color: inherit;}
+        .note-paper a { text-decoration: none; color: var(--brand-primary); border-bottom: 1px solid; border-bottom-color: inherit;}
         .note-paper hr { border: 0; border-top: 1px solid rgb(from var(--text-main) r g b / 50%); margin: 10px 0; }
 
         /* List Styles */

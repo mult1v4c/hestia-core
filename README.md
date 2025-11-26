@@ -8,9 +8,9 @@
 
 ## ✨ Features
 
-  * **Responsive Grid System:** Drag-and-drop your apps. Resize them to any dimension. The grid automatically adjusts to fit your layout.
+  * **Responsive Grid System:** Drag-and-drop your apps. Resize them to any dimension. The apps will automatically adjust to your prefered grid size.
   * **Deep Customization:**
-      * **Base16 Support:** Includes predefined palettes (Nord, Dracula, Gruvbox, etc.).
+      * **Base16 Support:** Includes predefined palettes that follow the [Base16](https://github.com/chriskempson/base16) framework. You can add your own palettes by adding entries to the `js/palettes.js` file.
       * **Fine-Grained Control:** Tweak every color, gap size, corner radius, and font.
       * **Live Previews:** See changes instantly as you edit settings.
   * **Modular App System:** Apps are isolated modules. Creating a new widget (Weather, Clock, Notes) is as simple as writing a single JavaScript class.

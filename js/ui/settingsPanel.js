@@ -4,7 +4,7 @@ import { applyTheme, applyBase16Theme, applyCustomPreset, renderPresetOptions, s
 import { qs, qsa } from "../dom.js";
 import { showToast } from "./toasts.js";
 import { openColorPicker } from "./colorPicker.js";
-import { formatColor, toHex,resolveToHex } from "../utils.js";
+import { formatColor, toHex, resolveToHex } from "../utils.js";
 import { renderGridLines, sanitizeGrid } from "../grid.js";
 import { logger } from "../logger.js";
 import { DEFAULT_THEME } from "../constants.js";
@@ -56,38 +56,45 @@ function toggleSettingsPanel() {
 }
 
 function wireUpInputs() {
+    // 1. Text Inputs (General settings like Title, Font)
     qsa('.setting-val').forEach(input => {
         if (input.id === 'newThemeName') return;
         const key = input.id.replace('input-', '');
         input.onchange = (e) => updateSetting(key, e.target.value);
     });
+
+    // 2. Toggles (Shadows, Outlines)
     qsa('.toggle-switch input').forEach(input => {
         const key = input.id.replace('input-', '');
         input.onchange = (e) => updateSetting(key, e.target.checked);
     });
 
+    // 3. Color Previews (Click to Open Popover)
     qsa('.color-preview').forEach(preview => {
         if (preview.id.includes('modal')) return;
         const key = preview.id.replace('preview-', '');
 
         preview.onclick = () => {
             openColorPicker(preview, (colorVar) => {
+                // Selected from Palette (saves "var(--base00)")
                 updateSetting(key, colorVar);
             }, () => {
-                // FIX: Target the Unique ID 'native-input-...'
-                const native = qs(`#native-input-${key}`);
+                // Clicked "Custom..." -> Open Native Picker
+                // MATCH HTML ID: "hidden-input-bgCanvas"
+                const native = qs(`#hidden-input-${key}`);
                 if (native) native.click();
             });
         };
     });
 
-    // FIX: Wire up native pickers with new ID format
+    // 4. Native Pickers (Hidden)
     qsa('.hidden-native-picker').forEach(picker => {
-        // ID is now "native-input-bgCanvas", so replace "native-input-"
-        const key = picker.id.replace('native-input-', '');
+        // MATCH HTML ID: "hidden-input-bgCanvas" -> Key: "bgCanvas"
+        const key = picker.id.replace('hidden-input-', '');
         picker.onchange = (e) => updateSetting(key, e.target.value);
     });
 
+    // 5. Preset Select
     const presetSelect = qs('#presetSelect');
     if (presetSelect) {
         presetSelect.onchange = (e) => {
@@ -97,12 +104,16 @@ function wireUpInputs() {
             syncInputs();
         };
     }
+
+    // 6. Save Preset Btn
     const savePresetBtn = qs('button[title="Save Preset"]');
     if (savePresetBtn) {
         savePresetBtn.onclick = () => {
             saveCustomPreset(qs('#newThemeName').value);
         };
     }
+
+    // 7. Reset Icons
     qsa('.reset-icon').forEach(icon => {
         const key = icon.id.replace('reset-', '');
         icon.onclick = () => resetSetting(key);
@@ -110,18 +121,15 @@ function wireUpInputs() {
 }
 
 /**
- * INTELLIGENT DEFAULT RESOLVER
- * Finds the correct default value based on the ACTIVE PALETTE.
+ * Returns the default value for a setting.
+ * If a Base16 palette is active, returns the "var(--baseXX)" string so reset comparison works.
  */
 function resolveThemeDefault(key) {
     const theme = state.settings.theme;
     const activePal = theme.activePalette;
 
-    // 1. If we have an active Base16 palette, look up the color from there
     if (activePal && window.HESTIA_PALETTES && window.HESTIA_PALETTES[activePal]) {
         const palette = window.HESTIA_PALETTES[activePal];
-
-        // Map Semantic Key -> Base16 Key (Same mapping as in theme.js)
         const mapping = {
             'bgCanvas': 'base00', 'bgSurface': 'base01', 'bgHighlight': 'base02',
             'borderDim': 'base02', 'borderBright': 'base03',
@@ -129,14 +137,12 @@ function resolveThemeDefault(key) {
             'brandPrimary': 'base0B', 'brandSecondary': 'base0D', 'brandTertiary': 'base0E',
             'statusError': 'base08', 'statusWarning': 'base09', 'statusSuccess': 'base0B'
         };
-
         const baseKey = mapping[key];
         if (baseKey && palette[baseKey]) {
-            return formatColor(palette[baseKey]);
+            // CRITICAL FIX: Return Variable format to match stored state
+            return `var(--${baseKey})`;
         }
     }
-
-    // 2. If no palette is active (or key is geometry/font), use the System Default
     return DEFAULT_THEME[key];
 }
 
@@ -155,78 +161,83 @@ function updateSetting(key, value) {
 }
 
 function resetSetting(key) {
-    // FIX: Use the smart resolver instead of hardcoded constant
     let def = resolveThemeDefault(key);
+    if (def === undefined) def = DEFAULT_THEME[key];
 
-    // Fallback to attribute if logic fails (rare)
-    if (def === undefined) {
-        const input = qs(`#input-${key}`);
-        if (input) def = input.getAttribute('data-default');
+    // Check if it's a toggle
+    const toggle = qs(`#input-${key}`);
+    if (toggle && toggle.type === 'checkbox') {
+        updateSetting(key, (String(def) === 'true'));
+    } else {
+        updateSetting(key, def);
     }
-
-    if (def === undefined) return;
-
-    // Handle boolean toggles vs strings
-    const input = qs(`#input-${key}`);
-    const isBool = input && input.type === 'checkbox';
-
-    updateSetting(key, isBool ? (String(def) === 'true') : def);
 }
 
+// --- THE CORE SYNC FUNCTION ---
 function syncInputs() {
     const theme = state.settings.theme;
-    const rootStyle = getComputedStyle(document.documentElement);
 
+    // A. Sync General Inputs (Text & Toggles)
+    // These match elements with id="input-..."
     qsa('[id^="input-"]').forEach(input => {
+        // Skip if it's one of the modal inputs (prevent partial match)
+        if (input.id.includes('modal')) return;
+
         const key = input.id.replace('input-', '');
         let val = theme[key];
+        let def = resolveThemeDefault(key);
+        if (def === undefined) def = input.getAttribute('data-default');
 
-        if (val === undefined || val === null) {
-            val = resolveThemeDefault(key);
-        }
-        if ((!val || val === '') && input.type !== 'checkbox') {
-             val = input.getAttribute('data-default');
-        }
-        if ((!val || val === '') && input.type !== 'checkbox') {
-             const cssVar = '--' + key.replace(/([A-Z])/g, "-$1").toLowerCase();
-             const computed = rootStyle.getPropertyValue(cssVar).trim();
-             if (computed && computed !== '') val = computed;
+        // Apply Value
+        if (val !== undefined) {
+            if (input.type === 'checkbox') input.checked = (String(val) === 'true');
+            else input.value = val;
         }
 
-        // Update Inputs
-        if (val !== undefined && val !== null) {
-            if (input.type === 'checkbox') {
-                input.checked = (String(val) === 'true');
-            } else if (input.type === 'color') {
-                // FIX: Convert stored variable to Hex for the native picker
-                input.value = resolveToHex(val);
-            } else {
-                input.value = val;
-            }
-        }
-
-        // Update Previews
-        const preview = qs(`#preview-${key}`);
-        if (preview && val) {
-            preview.style.backgroundColor = formatColor(val);
-        }
-
-        // Update Reset Buttons
+        // Update Reset Button (String Strict Check)
         const resetBtn = qs(`#reset-${key}`);
         if (resetBtn) {
-            let def = resolveThemeDefault(key);
-            if (def === undefined) def = input.getAttribute('data-default');
-
-            let isDiff = false;
-            if (input.type === 'checkbox') {
-                 isDiff = (input.checked !== (String(def) === 'true'));
-            } else {
-                const currentVal = input.type === 'color' ? toHex(val).toLowerCase() : String(val).trim().toLowerCase();
-                const defaultVal = input.type === 'color' ? toHex(def).toLowerCase() : String(def || '').trim().toLowerCase();
-                isDiff = (currentVal !== defaultVal);
-            }
+            const isDiff = input.type === 'checkbox'
+                ? (input.checked !== (String(def) === 'true'))
+                : (String(val || '').trim() !== String(def || '').trim());
 
             if (isDiff) resetBtn.classList.add('visible');
+            else resetBtn.classList.remove('visible');
+        }
+    });
+
+    // B. Sync Color Previews (CRITICAL FIX FOR COLORS)
+    // We loop over the previews because the inputs are gone from the HTML
+    qsa('.color-preview').forEach(preview => {
+        if (preview.id.includes('modal')) return; // Skip App Editor previews
+
+        const key = preview.id.replace('preview-', '');
+        let val = theme[key];
+        let def = resolveThemeDefault(key);
+
+        // Fallback to default if value is missing
+        if (!val) val = def;
+
+        // 1. Update the colored square
+        if (val) preview.style.backgroundColor = formatColor(val);
+
+        // 2. Sync the hidden native picker
+        // MATCH HTML ID: "hidden-input-..."
+        const native = qs(`#hidden-input-${key}`);
+        if (native && val) {
+            // Native picker needs HEX, but val might be "var(--base00)"
+            // resolveToHex handles the translation
+            native.value = resolveToHex(val);
+        }
+
+        // 3. Update Reset Button (Smart Hex Comparison)
+        const resetBtn = qs(`#reset-${key}`);
+        if (resetBtn) {
+            // Compare HEX values to handle "var(--base00)" vs "#181818"
+            const currentHex = resolveToHex(val).toLowerCase();
+            const defaultHex = resolveToHex(def).toLowerCase();
+
+            if (currentHex !== defaultHex) resetBtn.classList.add('visible');
             else resetBtn.classList.remove('visible');
         }
     });

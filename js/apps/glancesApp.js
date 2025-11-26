@@ -6,6 +6,7 @@ import { initCpu } from "./glances/gCpu.js";
 import { initMem } from "./glances/gMem.js";
 import { initNetwork } from "./glances/gNetwork.js";
 import { initSensors } from "./glances/gSensors.js";
+import { initDisk } from "./glances/gDisk.js";
 
 export class GlancesApp extends BaseApp {
     async render(app) {
@@ -40,6 +41,7 @@ export class GlancesApp extends BaseApp {
         else if (metric === 'mem') updateLogic = initMem(el, config);
         else if (metric === 'net') updateLogic = initNetwork(el, config);
         else if (metric === 'sensors') updateLogic = initSensors(el, config);
+        else if (metric === 'disk') updateLogic = initDisk(el, config);
 
         // 4. Main Loop
         const runUpdate = async () => {
@@ -86,6 +88,7 @@ registry.register('glances', GlancesApp, {
                 { label: 'CPU (Graph)', value: 'cpu' },
                 { label: 'Memory (Graph)', value: 'mem' },
                 { label: 'Network (Graph)', value: 'net' },
+                { label: 'Disk I/O & Usage', value: 'disk' },
                 { label: 'Temperatures (List)', value: 'sensors' }
             ]
         },
@@ -162,6 +165,77 @@ registry.register('glances', GlancesApp, {
             margin-top: 10px;
             white-space: nowrap;
             flex-shrink: 0;
+        }
+
+        /* --- GRAPH & IO --- */
+.canvas-wrapper {
+            width: 100%; position: relative; overflow: hidden;
+            flex: 1; /* Default for CPU/Mem (grows to fill) */
+        }
+
+        /* --- DISK SPECIFIC LAYOUT (Fixed Height) --- */
+        .disk-header-section {
+            position: relative; overflow: hidden;
+            width: 100%;
+            height: 100px; /* FIXED HEIGHT */
+            flex-shrink: 0; /* Never shrinks, prevents jumping */
+            border-bottom: 1px solid var(--border-dim);
+            margin-bottom: 5px;
+        }
+
+        .glances-graph { width: 100% !important; height: 100% !important; }
+
+        .disk-io-overlay {
+            position: absolute; bottom: 2px; right: 2px;
+            font-size: 0.7rem; color: var(--text-muted);
+            display: flex; gap: 8px; font-family: monospace;
+            background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;
+            pointer-events: none;
+        }
+
+        /* --- DISK GRID (Pie Charts) --- */
+        .disk-grid {
+            flex: 1; /* Take ALL remaining vertical space */
+            display: grid;
+            /* Cols: Fit as many as possible, min 130px wide */
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            /* Rows: Min 60px, but stretch (1fr) to fill vertical space equally */
+            grid-auto-rows: minmax(60px, 1fr);
+            gap: 5px;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .disk-grid::-webkit-scrollbar { width: 0; }
+
+        .disk-card {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(0,0,0,0.15);
+            border: 1px solid var(--border-dim);
+            border-radius: var(--radius);
+            padding: 5px 10px;
+            /* Center content in the stretched card */
+            justify-content: center;
+        }
+
+        .disk-pie-wrapper {
+            position: relative; width: 40px; height: 40px; flex-shrink: 0;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .disk-pie-wrapper canvas { width: 40px; height: 40px; }
+        .disk-percent {
+            position: absolute; font-size: 0.6rem; font-weight: bold; color: var(--text-main);
+        }
+
+        .disk-info {
+            min-width: 0; display: flex; flex-direction: column; justify-content: center;
+        }
+        .disk-name {
+            font-size: 0.8rem; font-weight: bold; color: var(--text-main);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .disk-meta {
+            font-size: 0.65rem; color: var(--text-muted);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
 
         /* Network Overlay */

@@ -4,3 +4,4 @@ import './imageApp.js';
 import './weatherApp.js';
 import './calendarApp.js';
 import './clockApp.js';
+import './helloWorld.js';

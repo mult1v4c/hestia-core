@@ -84,8 +84,8 @@ export const DEFAULT_APPS = [
       "rows": 1,
       "data": {
         "format": "24",
-        "bgColor": "#282828",
-        "textColor": "#e8e8e8"
+        "bgColor": "var(--bg-surface)",
+        "textColor": "var(--text-main)"
       }
     },
     {
@@ -114,8 +114,8 @@ export const DEFAULT_APPS = [
       "data": {
         "lat": "",
         "lon": "",
-        "bgColor": "#282828",
-        "textColor": "#e8e8e8"
+        "bgColor": "var(--bg-surface)",
+        "textColor": "var(--text-main)"
       }
     },
     {
@@ -130,8 +130,8 @@ export const DEFAULT_APPS = [
       "data": {
         "url": "https://github.com/mult1v4c/hestia-core",
         "icon": "github",
-        "bgColor": "#e8e8e8",
-        "textColor": "#282828",
+        "bgColor": "var(--base06)",
+        "textColor": "var(--base01)",
         "hideLabel": "false"
       }
     },
@@ -164,8 +164,8 @@ export const DEFAULT_APPS = [
         "url": "https://www.youtube.com/watch?v=Y6ljFaKRTrI",
         "icon": "youtube",
         "hideLabel": "true",
-        "bgColor": "#ab4642",
-        "textColor": "#f8f8f8"
+        "bgColor": "var(--base08)",
+        "textColor": "var(--base06)"
       }
     }
   ]

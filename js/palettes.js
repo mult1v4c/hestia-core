@@ -1,24 +1,4 @@
 window.HESTIA_PALETTES = {
-  "2b": {
-    "base08": "e34742",
-    "base09": "8a3638",
-    "base0A": "d8d8d1",
-    "base0B": "050b0f",
-    "base0C": "0b141b",
-    "base0D": "152431",
-    "base0E": "a4949f",
-    "base0F": "d37f78",
-    "base00": "00050a",
-    "base07": "ecf2eb",
-    "base01": "3f2d31",
-    "base02": "615c5f",
-    "base03": "907d86",
-    "base04": "b0a5ab",
-    "base05": "c3bba9",
-    "base06": "c6c0be",
-    "name": "2b",
-    "slug": "2b"
-  },
   "nebula": {
     "base00": "22273b",
     "base01": "414f60",
@@ -119,26 +99,6 @@ window.HESTIA_PALETTES = {
     "name": "Nord",
     "slug": "nord"
   },
-  "rose-pine-moon": {
-    "base00": "232136",
-    "base01": "2a273f",
-    "base02": "393552",
-    "base03": "6e6a86",
-    "base04": "908caa",
-    "base05": "e0def4",
-    "base06": "e0def4",
-    "base07": "56526e",
-    "base08": "eb6f92",
-    "base09": "f6c177",
-    "base0A": "ea9a97",
-    "base0B": "3e8fb0",
-    "base0C": "9ccfd8",
-    "base0D": "c4a7e7",
-    "base0E": "f6c177",
-    "base0F": "56526e",
-    "name": "Ros\u00e9 Pine Moon",
-    "slug": "rose-pine-moon"
-  },
   "default-light": {
     "base00": "f8f8f8",
     "base01": "e8e8e8",
@@ -178,26 +138,6 @@ window.HESTIA_PALETTES = {
     "base0F": "ab7967",
     "name": "Ocean",
     "slug": "ocean"
-  },
-  "rose-pine-dawn": {
-    "base00": "faf4ed",
-    "base01": "fffaf3",
-    "base02": "f2e9de",
-    "base03": "9893a5",
-    "base04": "797593",
-    "base05": "575279",
-    "base06": "575279",
-    "base07": "cecacd",
-    "base08": "b4637a",
-    "base09": "ea9d34",
-    "base0A": "d7827e",
-    "base0B": "286983",
-    "base0C": "56949f",
-    "base0D": "907aa9",
-    "base0E": "ea9d34",
-    "base0F": "cecacd",
-    "name": "Ros\u00e9 Pine Dawn",
-    "slug": "rose-pine-dawn"
   },
   "sakura": {
     "base00": "feedf3",

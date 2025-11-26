@@ -1,13 +1,14 @@
+//
 import { state, setState } from "../state.js";
 import { qs, qsa, createEl } from "../dom.js";
 import { showModal } from "./modal.js";
 import { showToast } from "./toasts.js";
 import { openColorPicker } from "./colorPicker.js";
-import { renderGrid } from "../grid.js";
+import { renderGrid, findEmptySlot } from "../grid.js"; // <--- Imported Helper
 import { saveState } from "../storage.js";
 import { formatColor, toHex, resolveToHex, escapeHtml } from "../utils.js";
 import { registry } from "../registry.js";
-import { saveImage } from "../imageStore.js"; // Import DB Saver
+import { saveImage } from "../imageStore.js";
 
 // ---------------------------------------------------------
 // 1. THE FORM GENERATOR
@@ -84,7 +85,6 @@ function generateDynamicFields(appDef, appData) {
             html += `</select>`;
         }
         else if (field.type === 'image-source') {
-            // Special UI for Image Source (Link vs Upload)
             const isDB = value.startsWith('img_');
             const showLink = !isDB;
 
@@ -127,7 +127,6 @@ function attachInteractions() {
     setupColorPicker('core-bgColor');
     setupColorPicker('core-textColor');
 
-    // Attach Image Source Toggles
     qsa('.image-source-wrapper').forEach(wrapper => {
         const radios = wrapper.querySelectorAll('input[type="radio"]');
         const linkInput = wrapper.querySelector('.source-input-link');
@@ -153,32 +152,25 @@ function setupColorPicker(id) {
     const native = qs(`#native-${id}`);
     if (!input || !preview) return;
 
-    // A. Click Preview -> Open Popover
     preview.onclick = () => {
         openColorPicker(preview, (colorVar) => {
-            // On Select from Palette (colorVar is like "var(--base0B)")
             input.value = colorVar;
             preview.style.background = colorVar;
-
-            // Convert var(--...) to Hex for the native picker
             if (native) native.value = resolveToHex(colorVar);
         }, () => {
-            // On Custom Click -> Open Native
             if (native) native.click();
         });
     };
 
-    // B. Text Input Change (Manual typing)
     input.onchange = (e) => {
         const val = formatColor(e.target.value);
         preview.style.background = val;
         if (native) native.value = resolveToHex(val);
     };
 
-    // C. Native Picker Change (Custom Hex)
     if (native) {
         native.oninput = (e) => {
-            input.value = e.target.value; // Native always gives hex
+            input.value = e.target.value;
             preview.style.background = e.target.value;
         };
     }
@@ -269,7 +261,7 @@ function promptDeleteApp(card) {
 }
 
 // ---------------------------------------------------------
-// 4. SAVE LOGIC (UPDATED FOR ASYNC UPLOADS)
+// 4. SAVE LOGIC
 // ---------------------------------------------------------
 
 async function saveApp(existingId, type) {
@@ -280,15 +272,12 @@ async function saveApp(existingId, type) {
 
     // 2. Dynamic Data
     const dynamicData = {};
-    const promises = []; // To track async uploads
 
-    // Handle Standard Inputs
     qsa('.dynamic-input').forEach(input => {
         const key = input.dataset.key;
         if (key) dynamicData[key] = input.value;
     });
 
-    // Handle Image Sources (Link vs Upload)
     const imageWrappers = qsa('.image-source-wrapper');
     for (const wrapper of imageWrappers) {
         const key = wrapper.dataset.key;
@@ -298,29 +287,22 @@ async function saveApp(existingId, type) {
             const linkVal = wrapper.querySelector('.source-input-link').value;
             dynamicData[key] = linkVal;
         } else {
-            // Upload Mode
             const fileInput = wrapper.querySelector('input[type="file"]');
             if (fileInput.files.length > 0) {
-                // Save New File
                 try {
                     const file = fileInput.files[0];
-                    const id = await saveImage(file); // Store in IndexedDB
+                    const id = await saveImage(file);
                     dynamicData[key] = id;
                 } catch (e) {
                     showToast("Failed to upload image", "error");
                     return;
                 }
             } else {
-                // No new file, keep existing ID (from hidden input)
-                // Use the hidden input's value which we stored in initial dynamicData extraction
-                // But specifically: if it was a URL before, and we switched to upload but didn't pick a file,
-                // we technically have "no image".
-                // Logic: If current hidden value is 'img_...', keep it. Else empty.
                 const original = wrapper.querySelector('.dynamic-input').value;
                 if (original && original.startsWith('img_')) {
                     dynamicData[key] = original;
                 } else {
-                    dynamicData[key] = ""; // Cleared
+                    dynamicData[key] = "";
                 }
             }
         }
@@ -331,6 +313,7 @@ async function saveApp(existingId, type) {
     let newApps = [...state.apps];
 
     if (existingId) {
+        // EDIT EXISTING
         const idx = newApps.findIndex(a => a.id === existingId);
         if (idx !== -1) {
             newApps[idx] = {
@@ -340,16 +323,25 @@ async function saveApp(existingId, type) {
             };
         }
     } else {
+        // CREATE NEW
         const appDef = registry.get(type);
         const size = appDef.metadata.defaultSize || { cols: 1, rows: 1 };
+        const w = size.cols || size.w;
+        const h = size.rows || size.h;
+
+        // --- SEARCH FOR FREE SPOT ---
+        let pos = findEmptySlot(w, h);
+        // ----------------------------
+
         newApps.push({
             id: Date.now(),
             name: name,
             subtype: type,
             type: "static",
-            x: 1, y: 1,
-            cols: size.cols || size.w,
-            rows: size.rows || size.h,
+            x: pos.x,
+            y: pos.y,
+            cols: w,
+            rows: h,
             data: finalData
         });
     }

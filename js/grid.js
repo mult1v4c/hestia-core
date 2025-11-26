@@ -1,4 +1,4 @@
-// js/grid.js
+//
 import { state, setState } from "./state.js";
 import { saveState } from "./storage.js";
 import { createEl, qs, qsa } from "./dom.js";
@@ -150,6 +150,30 @@ export function checkCollision(targetEl, x, y, w, h) {
         }
     }
     return false;
+}
+
+/**
+ * Scans the grid to find the first available slot for an item of size w x h
+ */
+export function findEmptySlot(w, h) {
+    const cols = parseInt(state.settings.theme.gridColumns) || 10;
+    // We allow scanning beyond the visual rows to find space at the bottom
+    const maxScanRows = 100;
+
+    for (let y = 1; y <= maxScanRows; y++) {
+        for (let x = 1; x <= cols; x++) {
+            // 1. Boundary Check (Width only)
+            if (x + w - 1 > cols) continue;
+
+            // 2. Collision Check
+            // passing null as targetEl because the new app doesn't exist in DOM yet
+            if (!checkCollision(null, x, y, w, h)) {
+                return { x, y };
+            }
+        }
+    }
+    // Fallback if dashboard is absolutely massive/full
+    return { x: 1, y: 1 };
 }
 
 export function saveGridState() {

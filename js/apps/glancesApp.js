@@ -8,6 +8,7 @@ import { initNetwork } from "./glances/gNetwork.js";
 import { initSensors } from "./glances/gSensors.js";
 import { initDisk } from "./glances/gDisk.js";
 import { initDocker } from "./glances/gDocker.js";
+import { initProcess } from "./glances/gProcess.js";
 
 export class GlancesApp extends BaseApp {
     async render(app) {
@@ -44,6 +45,7 @@ export class GlancesApp extends BaseApp {
         else if (metric === 'sensors') updateLogic = initSensors(el, config);
         else if (metric === 'disk') updateLogic = initDisk(el, config);
         else if (metric === 'docker') updateLogic = initDocker(el,config);
+        else if (metric === 'process') updateLogic = initProcess(el, config);
 
         // 4. Main Loop
         const runUpdate = async () => {
@@ -92,6 +94,7 @@ registry.register('glances', GlancesApp, {
                 { label: 'Network (Graph)', value: 'net' },
                 { label: 'Disk I/O & Usage', value: 'disk' },
                 { label: 'Docker Containers', value: 'docker' },
+                { label: 'Top Processes', value: 'process' },
                 { label: 'Temperatures (List)', value: 'sensors' }
             ]
         },
@@ -398,5 +401,68 @@ registry.register('glances', GlancesApp, {
             font-size: 0.65rem; color: var(--text-muted);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
+
+        /* --- PROCESS LIST --- */
+        .proc-header {
+            display: flex;
+            font-size: 0.65rem;
+            font-weight: bold;
+            color: var(--text-muted);
+            padding: 0 5px 5px 5px;
+            border-bottom: 1px solid var(--border-dim);
+            flex-shrink: 0;
+        }
+
+        .proc-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-height: 0;
+            padding-top: 5px;
+        }
+        .proc-list::-webkit-scrollbar { width: 0; }
+
+        .proc-row {
+            display: flex;
+            align-items: center;
+            font-size: 0.8rem;
+            padding: 4px 5px;
+            position: relative; /* For the bar behind */
+            z-index: 1;
+        }
+
+        /* The usage bar behind the text */
+        .p-bar {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            background: rgba(235, 111, 146, 0.15); /* Pinkish transparent */
+            border-left: 2px solid var(--brand-tertiary); /* Solid pink edge */
+            z-index: -1;
+            transition: width 0.5s;
+            pointer-events: none;
+        }
+
+        .p-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: bold;
+        }
+
+        .p-val {
+            width: 50px;
+            text-align: right;
+            font-family: monospace;
+        }
+        .p-cpu { color: var(--brand-tertiary); } /* Pink */
+        .p-mem { color: var(--text-muted); font-size: 0.7rem; }
+
+        /* Adaptive 1x1 */
+        .app-card[data-cols="1"] .proc-header { display: none; }
+        .app-card[data-cols="1"] .p-mem { display: none; }
+        .app-card[data-cols="1"] .proc-row { font-size: 0.7rem; padding: 2px 5px; }
     `
 });

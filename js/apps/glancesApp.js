@@ -2,7 +2,7 @@
 import { BaseApp } from "./baseApp.js";
 import { registry } from "../registry.js";
 import { HISTORY_SIZE } from "./glances/gCore.js";
-import { initCpu } from "./glances/gCpu.js";
+import { initCpu, initPerCpu } from "./glances/gCpu.js";
 import { initMem } from "./glances/gMem.js";
 import { initNetwork } from "./glances/gNetwork.js";
 import { initSensors } from "./glances/gSensors.js";
@@ -41,6 +41,7 @@ export class GlancesApp extends BaseApp {
         const config = { url, apiVer, dataPoints };
 
         if (metric === 'cpu') updateLogic = initCpu(el, config);
+        else if (metric === 'percpu') updateLogic = initPerCpu(el, config);
         else if (metric === 'mem') updateLogic = initMem(el, config);
         else if (metric === 'net') updateLogic = initNetwork(el, config);
         else if (metric === 'sensors') updateLogic = initSensors(el, config);
@@ -92,6 +93,7 @@ registry.register('glances', GlancesApp, {
             defaultValue: 'cpu',
             options: [
                 { label: 'CPU (Graph)', value: 'cpu' },
+                { label: 'CPU (Per Core)', value: 'percpu' },
                 { label: 'Memory (Graph)', value: 'mem' },
                 { label: 'Network (Graph)', value: 'net' },
                 { label: 'Disk I/O & Usage', value: 'disk' },
@@ -504,5 +506,49 @@ registry.register('glances', GlancesApp, {
         .app-card[data-cols="1"] .ut-icon { font-size: 2rem; }
         .app-card[data-cols="1"] .ut-val { font-size: 1.2rem; }
         .app-card[data-cols="1"] .ut-boot { display: none; }
+
+        /* --- CPU GRID (Per Core Graphs) --- */
+        .cpu-grid {
+            flex: 1;
+            display: grid;
+            /* Auto-fit columns, minimum 80px wide for readable graphs */
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            /* Rows stretch to fill vertical space equally */
+            grid-auto-rows: 1fr;
+            gap: 5px;
+            overflow: hidden; /* Force fit within the card */
+            min-height: 0;
+        }
+
+        .core-graph-cell {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-dim);
+            border-radius: 3px;
+            position: relative; /* For absolute text positioning */
+            overflow: hidden;
+            min-height: 40px;
+        }
+
+        .core-graph-cell canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .core-meta {
+            position: absolute;
+            top: 2px; left: 4px; right: 4px;
+            display: flex; justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            pointer-events: none; /* Let clicks pass through to canvas */
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            z-index: 2;
+        }
+
+        .c-val {
+            font-weight: bold;
+            color: var(--text-main);
+        }
     `
 });

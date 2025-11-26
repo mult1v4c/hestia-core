@@ -5,10 +5,10 @@ export function initSummary(el, config) {
     const { url, token } = config;
     const bodyEl = el.querySelector('.pihole-body');
 
-    // Setup DOM
+    // 1. Setup DOM
     bodyEl.innerHTML = `
         <div class="ph-grid">
-            <div class="ph-card total">
+            <div class="ph-card queries">
                 <div class="ph-label">QUERIES</div>
                 <div class="ph-val" id="val-total">--</div>
             </div>
@@ -19,7 +19,6 @@ export function initSummary(el, config) {
             <div class="ph-card percent">
                 <div class="ph-label">RATIO</div>
                 <div class="ph-val" id="val-percent">--%</div>
-                <div class="ph-bar-bg"><div class="ph-bar-fill" id="bar-percent" style="width:0%"></div></div>
             </div>
         </div>
     `;
@@ -27,24 +26,20 @@ export function initSummary(el, config) {
     const statusDot = el.querySelector('.ph-status-dot');
     const statusText = el.querySelector('.ph-status-text');
 
+    // 2. Return Update Function
     return async () => {
-        // Ensure URL doesn't have a trailing slash for cleaner concatenation
         const cleanBase = url.endsWith('/') ? url.slice(0, -1) : url;
-
-        // Target: /pi-api/api/stats/summary
         const targetUrl = `${cleanBase}/stats/summary`;
 
-        // PASS cleanBase as 4th arg so piCore can find /auth
         const data = await fetchPihole(targetUrl, {}, token, cleanBase);
 
-        // v6 Data Structure
+        // Update Metrics
         const queries = data.queries || {};
         el.querySelector('#val-total').innerText = formatNumber(queries.total);
         el.querySelector('#val-blocked').innerText = formatNumber(queries.blocked);
 
         const percent = parseFloat(queries.percent_blocked || 0).toFixed(1);
         el.querySelector('#val-percent').innerText = percent + '%';
-        el.querySelector('#bar-percent').style.width = percent + '%';
 
         statusDot.className = 'ph-status-dot active';
         statusText.innerText = 'ACTIVE';

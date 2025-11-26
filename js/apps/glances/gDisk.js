@@ -1,4 +1,3 @@
-//
 import { fetchGlances, drawGraph, HISTORY_SIZE, formatBytes } from "./gCore.js";
 import { resolveToHex } from "../../utils.js";
 
@@ -8,7 +7,6 @@ export function initDisk(el, config) {
     let lastIo = null;
 
     // 1. Setup DOM
-    // Removed inline styles, added 'disk-header-section' class
     bodyEl.innerHTML = `
         <div class="disk-header-section">
             <canvas class="glances-graph"></canvas>
@@ -25,16 +23,14 @@ export function initDisk(el, config) {
     const titleEl = el.querySelector('.metric-title');
     const valEl = el.querySelector('.metric-value');
 
-    // Resize Observer for Graph
-    // We observe the new container class
+    // Resize Observer
     const wrapper = el.querySelector('.disk-header-section');
     if (wrapper) {
         new ResizeObserver(() => {
             canvas.width = wrapper.clientWidth;
             canvas.height = wrapper.clientHeight;
-            // Redraw graph if data exists
             if (dataPoints.length > 0) {
-                const peak = Math.max(...dataPoints, 1024 * 1024); // Min 1MB scale
+                const peak = Math.max(...dataPoints, 1024 * 1024);
                 drawGraph(canvas, ctx, dataPoints, '--purple', peak * 1.2);
             }
         }).observe(wrapper);
@@ -89,19 +85,37 @@ export function initDisk(el, config) {
         const fsList = Array.isArray(fsData) ? fsData : Object.values(fsData);
         const grid = el.querySelector('#disk-grid');
 
-        // Only rebuild if count changes to prevent flicker,
-        // but for now simple rebuild is safer for responsive grid
         grid.innerHTML = '';
 
+        // --- DEDUPLICATION LOGIC ---
+        // Keep track of devices we've already drawn to avoid duplicates
+        const seenDevices = new Set();
+
         fsList.forEach(fs => {
-            // Filter out tiny loops/snaps if needed, but showing all for now
-            if (fs.size < 1024 * 1024 * 100) return; // Skip < 100MB partitions (usually noise)
+            const dev = fs.device_name;
+
+            // 1. Filter out Loopback devices (Snaps)
+            if (dev.startsWith('/dev/loop')) return;
+
+            // 2. Must be a physical device
+            if (!dev.startsWith('/dev/')) return;
+
+            // 3. Deduplicate!
+            // If we have already seen 'nvme0n1p2', skip this entry
+            if (seenDevices.has(dev)) return;
+            seenDevices.add(dev);
+
+            // --- DISPLAY LOGIC ---
+            // Clean up device name: "/dev/nvme0n1p2" -> "nvme0n1p2"
+            let prettyName = dev.replace('/dev/', '');
+
+            // For the sub-label, since mount points are messy in Docker (/etc/hosts),
+            // we will just show "Physical Vol" or "Partition"
+            let subLabel = "Volume";
+            if (fs.mnt_point === '/') subLabel = 'Root';
 
             const card = document.createElement('div');
             card.className = 'disk-card';
-
-            // Shorten name
-            const name = fs.mnt_point === '/' ? 'Root' : fs.mnt_point;
 
             card.innerHTML = `
                 <div class="disk-pie-wrapper">
@@ -109,7 +123,8 @@ export function initDisk(el, config) {
                     <div class="disk-percent">${Math.round(fs.percent)}%</div>
                 </div>
                 <div class="disk-info">
-                    <div class="disk-name" title="${fs.mnt_point}">${name}</div>
+                    <div class="disk-name" title="${dev}">${prettyName}</div>
+                    <div class="disk-meta">${subLabel}</div>
                     <div class="disk-meta">${formatBytes(fs.used)} / ${formatBytes(fs.size)}</div>
                 </div>
             `;
@@ -118,8 +133,18 @@ export function initDisk(el, config) {
 
             const pCanvas = card.querySelector('canvas');
             const pCtx = pCanvas.getContext('2d');
-            drawPie(pCtx, fs.percent, '--cyan', '--bg-highlight');
+
+            // Color Logic
+            let colorVar = '--cyan';
+            if (fs.percent > 90) colorVar = '--red';
+            else if (fs.percent > 75) colorVar = '--orange';
+
+            drawPie(pCtx, fs.percent, colorVar, '--bg-highlight');
         });
+
+        if (grid.children.length === 0) {
+             grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; opacity:0.5; font-size:0.8rem; padding-top:10px;">No volumes found</div>';
+        }
     };
 }
 

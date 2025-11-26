@@ -208,8 +208,8 @@ registry.register('glances', GlancesApp, {
         .disk-grid {
             flex: 1; /* Take ALL remaining vertical space */
             display: grid;
-            /* Cols: Fit as many as possible, min 130px wide */
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            /* Cols: Fit as many as possible, min 150px wide */
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             /* Rows: Min 60px, but stretch (1fr) to fill vertical space equally */
             grid-auto-rows: minmax(60px, 1fr);
             gap: 5px;

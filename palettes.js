@@ -1,4 +1,24 @@
 window.HESTIA_PALETTES = {
+  "2b": {
+    "base08": "e34742",
+    "base09": "8a3638",
+    "base0A": "d8d8d1",
+    "base0B": "050b0f",
+    "base0C": "0b141b",
+    "base0D": "152431",
+    "base0E": "a4949f",
+    "base0F": "d37f78",
+    "base00": "00050a",
+    "base07": "ecf2eb",
+    "base01": "3f2d31",
+    "base02": "615c5f",
+    "base03": "907d86",
+    "base04": "b0a5ab",
+    "base05": "c3bba9",
+    "base06": "c6c0be",
+    "name": "2b",
+    "slug": "2b"
+  },
   "nebula": {
     "base00": "22273b",
     "base01": "414f60",

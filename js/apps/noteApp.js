@@ -57,6 +57,7 @@ registry.register('note', NoteApp, {
             outline: none;
             line-height: 1.4;
             cursor: text;
+            word-wrap: break-word;
         }
 
         .note-paper:focus {
@@ -70,13 +71,6 @@ registry.register('note', NoteApp, {
 
         .app-card[data-rows="1"] .note-paper {
             min-height: calc(200% + var(--gap-size));
-        }
-
-        .note-paper {
-            flex: 1; width: 100%; box-sizing: border-box; padding: 10px;
-            overflow-y: auto;
-            font-size: 0.9rem; line-height: 1.5;
-            word-wrap: break-word;
         }
 
         .note-paper i {

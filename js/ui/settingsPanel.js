@@ -188,18 +188,26 @@ function syncInputs() {
         let def = resolveThemeDefault(key);
         if (def === undefined) def = input.getAttribute('data-default');
 
-        // Apply Value
+        // Apply Value to DOM
         if (val !== undefined) {
             if (input.type === 'checkbox') input.checked = (String(val) === 'true');
             else input.value = val;
         }
 
-        // Update Reset Button (String Strict Check)
+        // Update Reset Button Visibility
         const resetBtn = qs(`#reset-${key}`);
         if (resetBtn) {
-            const isDiff = input.type === 'checkbox'
-                ? (input.checked !== (String(def) === 'true'))
-                : (String(val || '').trim() !== String(def || '').trim());
+            let isDiff = false;
+
+            if (input.type === 'checkbox') {
+                // Boolean Comparison
+                isDiff = (input.checked !== (String(def) === 'true'));
+            } else {
+                // Standard String Comparison (Case-insensitive)
+                const currentStr = String(val || '').trim().toLowerCase();
+                const defaultStr = String(def || '').trim().toLowerCase();
+                isDiff = (currentStr !== defaultStr);
+            }
 
             if (isDiff) resetBtn.classList.add('visible');
             else resetBtn.classList.remove('visible');
@@ -215,29 +223,28 @@ function syncInputs() {
         let val = theme[key];
         let def = resolveThemeDefault(key);
 
-        // Fallback to default if value is missing
+        // Fallback to default if value is missing for display
         if (!val) val = def;
 
-        // 1. Update the colored square
+        // 1. Update the colored square visual
         if (val) preview.style.backgroundColor = formatColor(val);
 
         // 2. Sync the hidden native picker
-        // MATCH HTML ID: "native-input-..."
         const native = qs(`#native-input-${key}`);
         if (native && val) {
-            // Native picker needs HEX, but val might be "var(--base00)"
-            // resolveToHex handles the translation
             native.value = resolveToHex(val);
         }
 
-        // 3. Update Reset Button (Smart Hex Comparison)
+        // 3. Update Reset Button (SMART HEX COMPARISON)
         const resetBtn = qs(`#reset-${key}`);
         if (resetBtn) {
-            // Compare HEX values to handle "var(--base00)" vs "#181818"
-            const currentVal = String(val || '').trim();
-            const defaultVal = String(def || '').trim();
+            // Resolve variables (var(--base00)) to actual Hex (#181818)
+            // This ensures visually identical colors are treated as "Same"
+            const currentHex = resolveToHex(val).toLowerCase();
+            const defaultHex = resolveToHex(def).toLowerCase();
 
-            if (currentVal !== defaultVal) resetBtn.classList.add('visible');
+            // Only show reset if the actual colors differ
+            if (currentHex !== defaultHex) resetBtn.classList.add('visible');
             else resetBtn.classList.remove('visible');
         }
     });

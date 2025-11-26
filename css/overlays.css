@@ -94,6 +94,27 @@
     margin-bottom: 10px; padding-bottom: 4px; margin-top: 0;
 }
 
+/* --- RESET ICON --- */
+.reset-icon {
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;             /* Hidden by default */
+    pointer-events: none;   /* Prevent clicking when hidden */
+    transition: opacity 0.2s, transform 0.2s;
+    font-size: 0.9rem;
+    margin-left: 5px;       /* Little breathing room */
+}
+
+.reset-icon.visible {
+    opacity: 1;             /* Show only when JS adds this class */
+    pointer-events: auto;   /* Allow clicking again */
+}
+
+.reset-icon:hover {
+    color: var(--brand-primary);
+    transform: rotate(-180deg); /* Optional: Satisfying spin on hover */
+}
+
 /* --- COLOR PICKER POPOVER --- */
 .color-preview {
     width: 30px; height: 30px; border: 1px solid var(--border-dim);

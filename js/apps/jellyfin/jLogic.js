@@ -15,7 +15,11 @@ export function initJellyfin(el, config) {
                 </div>
                 <div class="jf-info">
                     <div class="jf-title">Title</div>
-                    <div class="jf-subtitle">Subtitle</div>
+                    <div class="jf-meta-row">
+                        <span class="jf-year">2024</span>
+                        <span class="jf-rating">PG-13</span>
+                    </div>
+                    <div class="jf-genre">Action</div>
                 </div>
                 <div class="jf-progress-track">
                     <div class="jf-progress-fill"></div>
@@ -24,24 +28,48 @@ export function initJellyfin(el, config) {
         </div>
 
         <div class="jf-shelf" style="display:none;">
-            <div class="jf-shelf-header">RECENTLY ADDED</div>
-            <div class="jf-grid" id="jf-grid"></div>
+            <div class="jf-shelf-header">LATEST ADDED</div>
+            <div class="jf-list" id="jf-list">
+                <div style="text-align:center; padding:20px; opacity:0.5;">Loading...</div>
+            </div>
         </div>
     `;
 
+    // State for ID Resolution
+    let resolvedUserId = userId;
+    let isIdResolved = false;
+
     // 2. Return Update Function
     return async () => {
-        // --- CHECK ACTIVE SESSIONS ---
-        const sessions = await fetchJellyfin(url, '/Sessions', {}, apiKey);
+        // --- STEP 0: Auto-Resolve Username ---
+        if (!isIdResolved && resolvedUserId) {
+            try {
+                if (resolvedUserId.length === 32) {
+                    isIdResolved = true;
+                } else {
+                    const users = await fetchJellyfin(url, '/Users', {}, apiKey);
+                    const match = users.find(u =>
+                        u.Name.toLowerCase() === resolvedUserId.toLowerCase() ||
+                        u.Id === resolvedUserId
+                    );
+                    if (match) {
+                        resolvedUserId = match.Id;
+                        isIdResolved = true;
+                    }
+                }
+            } catch (e) {
+                console.error("[Jellyfin] User lookup failed:", e);
+            }
+        }
 
-        // Filter for "Now Playing" items (Video/Audio)
+        // --- STEP 1: Check Sessions ---
+        const sessions = await fetchJellyfin(url, '/Sessions', {}, apiKey);
         const activeSession = sessions.find(s => s.NowPlayingItem && s.NowPlayingItem.MediaType === 'Video');
 
         if (activeSession) {
             renderPlayer(el, url, activeSession);
         } else {
-            // Fallback to Latest
-            await renderShelf(el, url, apiKey, userId);
+            await renderShelf(el, url, apiKey, resolvedUserId);
         }
     };
 }
@@ -51,14 +79,12 @@ function renderPlayer(el, baseUrl, session) {
     const shelf = el.querySelector('.jf-shelf');
     const item = session.NowPlayingItem;
 
-    // Toggle Views
     player.style.display = 'flex';
     shelf.style.display = 'none';
 
     // 1. Backdrop
     const backdropUrl = getJellyfinImage(baseUrl, item.Id, "Backdrop");
     const backdropEl = el.querySelector('.jf-backdrop');
-    // Simple cache check to prevent flashing
     if (backdropEl.dataset.current !== item.Id) {
         backdropEl.style.backgroundImage = `url('${backdropUrl}')`;
         backdropEl.dataset.current = item.Id;
@@ -68,12 +94,19 @@ function renderPlayer(el, baseUrl, session) {
     el.querySelector('.jf-user').innerText = session.UserName;
     el.querySelector('.jf-title').innerText = item.Name;
 
-    // Subtitle logic (Series vs Movie)
-    let sub = item.ProductionYear || '';
-    if (item.SeriesName) {
-        sub = `${item.SeriesName} - S${item.ParentIndexNumber}E${item.IndexNumber}`;
+    el.querySelector('.jf-year').innerText = item.ProductionYear || '';
+
+    const rating = item.OfficialRating || '';
+    const ratingEl = el.querySelector('.jf-rating');
+    if (rating) {
+        ratingEl.innerText = rating;
+        ratingEl.style.display = 'inline-block';
+    } else {
+        ratingEl.style.display = 'none';
     }
-    el.querySelector('.jf-subtitle').innerText = sub;
+
+    const genreText = (item.Genres || []).slice(0, 3).join(', ');
+    el.querySelector('.jf-genre').innerText = genreText;
 
     // 3. Progress
     if (session.PlayState) {
@@ -91,34 +124,53 @@ async function renderShelf(el, baseUrl, apiKey, userId) {
     shelf.style.display = 'flex';
 
     if (!userId) {
-        el.querySelector('#jf-grid').innerHTML = '<div style="opacity:0.5; font-size:0.8rem;">Add User ID in settings<br>to see recent items.</div>';
+        el.querySelector('#jf-list').innerHTML = '<div style="opacity:0.5; font-size:0.8rem; text-align:center; padding-top:20px;">User not found</div>';
         return;
     }
 
-    // Fetch Latest (Movies & Episodes)
-    const latest = await fetchJellyfin(baseUrl, `/Users/${userId}/Items/Latest`, {
-        Limit: 6,
-        IncludeItemTypes: "Movie,Episode"
+    // Fetch Latest Movies
+    const response = await fetchJellyfin(baseUrl, `/Users/${userId}/Items/Latest`, {
+        Limit: 20,
+        IncludeItemTypes: "Movie",
+        Fields: "ProductionYear,OfficialRating,Genres"
     }, apiKey);
 
-    const grid = el.querySelector('#jf-grid');
-    grid.innerHTML = '';
+    // FIX: Robustness Check (Array vs Object wrapper)
+    let latest = [];
+    if (Array.isArray(response)) {
+        latest = response;
+    } else if (response && response.Items) {
+        latest = response.Items;
+    }
+
+    const listEl = el.querySelector('#jf-list');
+    listEl.innerHTML = ''; // Always clear to prevent "Loading" stuck state
 
     latest.forEach(item => {
-        const imgUrl = getJellyfinImage(baseUrl, item.Id, "Primary"); // Poster
+        const imgUrl = getJellyfinImage(baseUrl, item.Id, "Primary");
+        const year = item.ProductionYear || '';
+        const rating = item.OfficialRating || '';
+        const genres = (item.Genres || []).slice(0, 2).join(', ');
+
         const card = document.createElement('div');
-        card.className = 'jf-poster';
-        card.style.backgroundImage = `url('${imgUrl}')`;
-        card.title = item.Name; // Tooltip
+        card.className = 'jf-list-item';
 
-        // Overlay for Episodes
-        if (item.SeriesName) {
-            const epBadge = document.createElement('div');
-            epBadge.className = 'jf-ep-badge';
-            epBadge.innerText = `S${item.ParentIndexNumber} E${item.IndexNumber}`;
-            card.appendChild(epBadge);
-        }
+        card.innerHTML = `
+            <div class="jf-poster-thumb" style="background-image: url('${imgUrl}')"></div>
+            <div class="jf-item-info">
+                <div class="jf-item-title" title="${item.Name}">${item.Name}</div>
+                <div class="jf-item-meta">
+                    <span class="jf-item-year">${year}</span>
+                    ${rating ? `<span class="jf-item-rating">${rating}</span>` : ''}
+                </div>
+                <div class="jf-item-genre">${genres}</div>
+            </div>
+        `;
 
-        grid.appendChild(card);
+        listEl.appendChild(card);
     });
+
+    if (latest.length === 0) {
+        listEl.innerHTML = '<div style="opacity:0.5; font-size:0.8rem; text-align:center;">No recent movies</div>';
+    }
 }

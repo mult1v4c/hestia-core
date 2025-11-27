@@ -51,14 +51,14 @@ registry.register('jellyfin', JellyfinApp, {
     settings: [
         { name: 'url', label: 'Server URL', type: 'text', placeholder: 'http://192.168.1.x:8096' },
         { name: 'apiKey', label: 'API Key', type: 'text', placeholder: 'Dashboard > API Keys' },
-        { name: 'userId', label: 'User ID (For Recents)', type: 'text', placeholder: 'From URL or Users tab' },
+        { name: 'userId', label: 'User ID / Name', type: 'text', placeholder: 'For "Latest Added"' },
         { name: 'interval', label: 'Interval (ms)', type: 'text', defaultValue: '5000' }
     ],
     css: `
         .app-type-jellyfin {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column;
-            padding: 0; overflow: hidden; /* Important for backdrop */
+            padding: 0; overflow: hidden;
             background: #000; color: white;
         }
 
@@ -98,7 +98,11 @@ registry.register('jellyfin', JellyfinApp, {
 
         .jf-info { margin-bottom: 8px; }
         .jf-title { font-size: 1.1rem; font-weight: bold; text-shadow: 0 1px 3px black; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .jf-subtitle { font-size: 0.85rem; opacity: 0.8; text-shadow: 0 1px 2px black; }
+
+        .jf-meta-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin-bottom: 2px; }
+        .jf-year { opacity: 0.9; font-weight: bold; }
+        .jf-rating { border: 1px solid rgba(255,255,255,0.5); padding: 0 4px; border-radius: 3px; font-size: 0.7rem; }
+        .jf-genre { font-size: 0.75rem; opacity: 0.7; font-style: italic; }
 
         .jf-progress-track {
             height: 4px; width: 100%; background: rgba(255,255,255,0.2);
@@ -106,38 +110,56 @@ registry.register('jellyfin', JellyfinApp, {
         }
         .jf-progress-fill { height: 100%; background: var(--brand-primary); transition: width 1s linear; }
 
-        /* --- SHELF VIEW --- */
+        /* --- SHELF VIEW (List Mode) --- */
         .jf-shelf {
             width: 100%; height: 100%; display: flex; flex-direction: column;
-            padding: 40px 10px 10px 10px; /* Top padding clears header */
+            padding: 35px 0 0 0; /* Top padding clears header */
             box-sizing: border-box; background: var(--bg-surface);
         }
 
         .jf-shelf-header {
             font-size: 0.65rem; color: var(--text-muted); font-weight: bold;
-            margin-bottom: 5px; border-bottom: 1px solid var(--border-dim); padding-bottom: 2px;
+            margin: 0 10px 5px 10px; border-bottom: 1px solid var(--border-dim); padding-bottom: 2px;
+            flex-shrink: 0;
         }
 
-        .jf-grid {
-            flex: 1; display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
-            gap: 6px; overflow-y: auto;
+        .jf-list {
+            flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+            padding: 0 5px 5px 5px;
         }
-        .jf-grid::-webkit-scrollbar { width: 4px; }
+        .jf-list::-webkit-scrollbar { width: 4px; }
 
-        .jf-poster {
-            aspect-ratio: 2/3; background-size: cover; background-position: center;
-            border-radius: 4px; position: relative; overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-            transition: transform 0.2s; cursor: help;
+        /* List Items */
+        .jf-list-item {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255,255,255,0.03);
+            padding: 6px; border-radius: 4px;
+            transition: background 0.2s;
         }
-        .jf-poster:hover { transform: scale(1.05); z-index: 2; }
+        .jf-list-item:hover { background: rgba(255,255,255,0.08); }
 
-        .jf-ep-badge {
-            position: absolute; bottom: 0; right: 0;
-            background: rgba(0,0,0,0.7); color: white;
-            font-size: 0.6rem; padding: 2px 4px;
-            border-top-left-radius: 3px;
+        /* Poster Thumbnail (2:3 Ratio) */
+        .jf-poster-thumb {
+            width: 70px; height: 105px; flex-shrink: 0;
+            background-size: cover; background-position: center;
+            border-radius: 3px; background-color: rgba(0,0,0,0.5);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
+
+        .jf-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+        .jf-item-title {
+            font-size: 0.85rem; font-weight: bold; color: var(--text-main);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .jf-item-meta { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-muted); }
+        .jf-item-year { font-weight: bold; }
+        .jf-item-rating {
+            border: 1px solid var(--border-dim); padding: 0 3px; border-radius: 3px;
+            font-size: 0.65rem; opacity: 0.8;
+        }
+
+        .jf-item-genre { font-size: 0.7rem; color: var(--text-faint); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     `
 });

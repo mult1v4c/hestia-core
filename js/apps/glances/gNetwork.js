@@ -1,3 +1,4 @@
+// js/apps/glances/gNetwork.js
 import { fetchGlances, drawGraph, HISTORY_SIZE, formatBytes } from "./gCore.js";
 
 export function initNetwork(el, config) {
@@ -5,22 +6,21 @@ export function initNetwork(el, config) {
     const bodyEl = el.querySelector('.glances-body');
     let lastNet = null;
 
-    // 1. Setup DOM
+    // 1. Setup DOM (Using Overlay)
     bodyEl.innerHTML = `
         <div class="canvas-wrapper">
             <canvas class="glances-graph"></canvas>
-        </div>
-        <div class="graph-meta"><span id="net-meta">RX: -- | TX: --</span></div>`;
+            <div class="glances-overlay" id="net-meta">RX: -- | TX: --</div>
+        </div>`;
 
     const canvas = el.querySelector('canvas');
     const ctx = canvas.getContext('2d');
     const titleEl = el.querySelector('.metric-title');
     const valEl = el.querySelector('.metric-value');
 
-    // Redraw Helper (Calculates dynamic scale for network)
+    // Redraw Helper
     const redraw = () => {
         const peak = Math.max(...dataPoints);
-        // Add 20% headroom, default 1KB minimum
         const maxVal = peak > 0 ? peak * 1.2 : 1024;
         drawGraph(canvas, ctx, dataPoints, '--yellow', maxVal);
     };
@@ -65,11 +65,6 @@ export function initNetwork(el, config) {
                 titleEl.innerText = "NETWORK";
                 valEl.innerText = formatBytes(totalSpeed) + '/s';
 
-                // Update Overlay & Footer
-                const rxEl = el.querySelector('#net-rx');
-                const txEl = el.querySelector('#net-tx');
-                if (rxEl) rxEl.innerText = formatBytes(rxSpeed) + '/s';
-                if (txEl) txEl.innerText = formatBytes(txSpeed) + '/s';
                 el.querySelector('#net-meta').innerText = `⬇ ${formatBytes(rxSpeed)} | ⬆ ${formatBytes(txSpeed)}`;
 
                 // Update Graph

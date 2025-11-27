@@ -1,13 +1,16 @@
+// js/apps/glances/gMem.js
 import { fetchGlances, drawGraph, HISTORY_SIZE, formatBytes } from "./gCore.js";
 
 export function initMem(el, config) {
     const { url, apiVer, dataPoints } = config;
     const bodyEl = el.querySelector('.glances-body');
 
-    // 1. Setup DOM
+    // 1. Setup DOM (Using Overlay)
     bodyEl.innerHTML = `
-        <div class="canvas-wrapper"><canvas class="glances-graph"></canvas></div>
-        <div class="graph-meta"><span id="mem-meta">-- / --</span></div>`;
+        <div class="canvas-wrapper">
+            <canvas class="glances-graph"></canvas>
+            <div class="glances-overlay" id="mem-meta">-- / --</div>
+        </div>`;
 
     const canvas = el.querySelector('canvas');
     const ctx = canvas.getContext('2d');

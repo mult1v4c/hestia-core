@@ -1,4 +1,4 @@
-//
+// js/apps/glancesApp.js
 import { BaseApp } from "./baseApp.js";
 import { registry } from "../registry.js";
 import { HISTORY_SIZE } from "./glances/gCore.js";
@@ -13,7 +13,6 @@ import { initUptime } from "./glances/gUptime.js";
 
 export class GlancesApp extends BaseApp {
     async render(app) {
-        // We use the same structure as the Note/Calendar apps
         return `
             <div class="app-content app-type-glances">
                 <div class="glances-header">
@@ -25,19 +24,16 @@ export class GlancesApp extends BaseApp {
     }
 
     onMount(el, app) {
-        // 1. Settings & Sanitization
         let rawUrl = app.data.url || 'http://localhost:61208';
         const url = rawUrl.replace(/\/+$/, '').replace(/\/api\/\d+$/, '');
         const metric = app.data.metric || 'cpu';
         const apiVer = app.data.apiVer || '3';
         const intervalTime = parseInt(app.data.interval) || 1000;
 
-        // 2. State
         const dataPoints = new Array(HISTORY_SIZE).fill(0);
         let isRunning = true;
-        let updateLogic = null; // Will hold the module function
+        let updateLogic = null;
 
-        // 3. Initialize Specific Module
         const config = { url, apiVer, dataPoints };
 
         if (metric === 'cpu') updateLogic = initCpu(el, config);
@@ -50,7 +46,6 @@ export class GlancesApp extends BaseApp {
         else if (metric === 'process') updateLogic = initProcess(el, config);
         else if (metric === 'uptime') updateLogic = initUptime(el, config);
 
-        // 4. Main Loop
         const runUpdate = async () => {
             if (!isRunning || !el.isConnected) return;
             try {
@@ -65,7 +60,7 @@ export class GlancesApp extends BaseApp {
         };
 
         const timer = setInterval(runUpdate, intervalTime);
-        runUpdate(); // Initial run
+        runUpdate();
     }
 }
 
@@ -107,12 +102,9 @@ registry.register('glances', GlancesApp, {
     ],
     css: `
         .app-type-glances {
-            /* 1. POSITIONING (Like NoteApp) - Prevents Grid Movement */
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             z-index: 1;
-
-            /* 2. LAYOUT - Internal Flow */
             display: flex;
             flex-direction: column;
             padding: 10px;
@@ -123,12 +115,11 @@ registry.register('glances', GlancesApp, {
             color: inherit;
         }
 
-        /* --- HEADER --- */
         .glances-header {
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            flex-shrink: 0; /* Never shrink */
+            flex-shrink: 0;
             width: 100%;
         }
         .metric-title {
@@ -146,17 +137,28 @@ registry.register('glances', GlancesApp, {
             margin-left: 10px;
         }
 
-        /* --- BODY CONTAINER --- */
         .glances-body {
-            flex: 1; /* Occupy all remaining space */
+            flex: 1;
             width: 100%;
-            min-height: 0; /* Allow shrinking */
+            min-height: 0;
             position: relative;
             display: flex;
             flex-direction: column;
         }
 
-        /* --- MODULES (Graph/Sensors) --- */
+        /* --- OVERLAY STYLE (NEW) --- */
+        .glances-overlay {
+            position: absolute; bottom: 4px; right: 4px;
+            font-size: 0.7rem; color: var(--text-muted);
+            display: flex; gap: 8px; font-family: monospace;
+            background: rgba(0,0,0,0.4);
+            padding: 3px 6px;
+            border-radius: 4px;
+            pointer-events: none;
+            backdrop-filter: blur(2px);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
         .canvas-wrapper {
             flex: 1;
             width: 100%;
@@ -168,7 +170,7 @@ registry.register('glances', GlancesApp, {
             height: 100% !important;
         }
 
-        /* Footer Meta */
+        /* Legacy Footer Meta (Can be removed if unused, but keeping for safety) */
         .graph-meta, .cpu-meta {
             font-size: 0.7rem;
             color: var(--text-muted);
@@ -176,45 +178,36 @@ registry.register('glances', GlancesApp, {
             margin-top: 10px;
             white-space: nowrap;
             flex-shrink: 0;
+            display: none; /* Hidden by default now */
         }
 
-        /* --- GRAPH & IO --- */
-        .canvas-wrapper {
-            width: 100%; position: relative; overflow: hidden;
-            flex: 1; /* Default for CPU/Mem (grows to fill) */
-        }
-
-        /* --- DISK SPECIFIC LAYOUT (Fixed Height) --- */
+        /* --- DISK GRID --- */
         .disk-header-section {
             position: relative; overflow: hidden;
             width: 100%;
-            height: 100px; /* FIXED HEIGHT */
-            flex-shrink: 0; /* Never shrinks, prevents jumping */
+            height: 100px;
+            flex-shrink: 0;
             border-bottom: 1px solid var(--border-dim);
             margin-bottom: 5px;
         }
-
-        .glances-graph { width: 100% !important; height: 100% !important; }
-
-        .disk-io-overlay {
-            position: absolute; bottom: 2px; right: 2px;
+        .disk-io-overlay { /* Specific legacy override or alias */
+             position: absolute; bottom: 4px; right: 4px;
             font-size: 0.7rem; color: var(--text-muted);
             display: flex; gap: 8px; font-family: monospace;
-            background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;
+            background: rgba(0,0,0,0.4); padding: 3px 6px; border-radius: 4px;
             pointer-events: none;
+            backdrop-filter: blur(2px);
         }
 
-        /* --- DISK GRID (Pie Charts) --- */
         .disk-grid {
-            flex: 1; /* Take ALL remaining vertical space */
+            flex: 1;
             display: grid;
-            /* Cols: Fit as many as possible, min 150px wide */
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            /* Rows: Min 60px, but stretch (1fr) to fill vertical space equally */
             grid-auto-rows: minmax(60px, 1fr);
             gap: 5px;
             overflow-y: auto;
             min-height: 0;
+            padding-top: 5px;
         }
         .disk-grid::-webkit-scrollbar { width: 0; }
 
@@ -224,7 +217,6 @@ registry.register('glances', GlancesApp, {
             border: 1px solid var(--border-dim);
             border-radius: var(--radius);
             padding: 5px 10px;
-            /* Center content in the stretched card */
             justify-content: center;
         }
 
@@ -233,27 +225,15 @@ registry.register('glances', GlancesApp, {
             display: flex; justify-content: center; align-items: center;
         }
         .disk-pie-wrapper canvas { width: 40px; height: 40px; }
-        .disk-percent {
-            position: absolute; font-size: 0.6rem; font-weight: bold; color: var(--text-main);
-        }
+        .disk-percent { position: absolute; font-size: 0.6rem; font-weight: bold; color: var(--text-main); }
+        .disk-info { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+        .disk-name { font-size: 0.8rem; font-weight: bold; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .disk-meta { font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .disk-info {
-            min-width: 0; display: flex; flex-direction: column; justify-content: center;
-        }
-        .disk-name {
-            font-size: 0.8rem; font-weight: bold; color: var(--text-main);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .disk-meta {
-            font-size: 0.65rem; color: var(--text-muted);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-
-        /* --- DOCKER SPECIFIC --- */
+        /* --- DOCKER --- */
         .docker-grid {
             flex: 1;
             display: grid;
-            /* Cards are slightly larger than sensors */
             grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             grid-auto-rows: minmax(45px, 1fr);
             gap: 5px;
@@ -262,237 +242,61 @@ registry.register('glances', GlancesApp, {
             align-content: start;
         }
         .docker-grid::-webkit-scrollbar { width: 0; }
-
         .docker-card {
             background: rgba(0,0,0,0.15);
             border: 1px solid var(--border-dim);
             border-radius: var(--radius);
-            display: flex;
-            align-items: center;
-            padding: 5px 10px;
-            gap: 10px;
-            transition: all 0.2s;
+            display: flex; align-items: center; padding: 5px 10px; gap: 10px;
         }
-
-        .d-status-dot {
-            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-            background: var(--text-muted);
-            box-shadow: 0 0 5px currentColor;
-        }
+        .d-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--text-muted); box-shadow: 0 0 5px currentColor; }
         .docker-card.running .d-status-dot { color: var(--status-success); background: currentColor; }
         .docker-card.paused .d-status-dot { color: var(--status-warning); background: currentColor; }
         .docker-card.stopped .d-status-dot { color: var(--status-error); background: currentColor; }
-
         .d-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-        .d-name {
-            font-size: 0.8rem; font-weight: bold; color: var(--text-main);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .d-stats {
-            font-size: 0.65rem; color: var(--text-muted);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
+        .d-name { font-size: 0.8rem; font-weight: bold; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .d-stats { font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* --- PROCESS LIST --- */
-        .proc-header {
-            display: flex;
-            font-size: 0.65rem;
-            font-weight: bold;
-            color: var(--text-muted);
-            padding: 0 5px 5px 5px;
-            border-bottom: 1px solid var(--border-dim);
-            flex-shrink: 0;
-        }
-
-        .proc-list {
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            min-height: 0;
-            padding-top: 5px;
-        }
+        /* --- PROCESS --- */
+        .proc-header { display: flex; font-size: 0.65rem; font-weight: bold; color: var(--text-muted); padding: 0 5px 5px 5px; border-bottom: 1px solid var(--border-dim); flex-shrink: 0; }
+        .proc-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; min-height: 0; padding-top: 5px; }
         .proc-list::-webkit-scrollbar { width: 0; }
-
-        .proc-row {
-            display: flex;
-            align-items: center;
-            font-size: 0.8rem;
-            padding: 4px 5px;
-            position: relative; /* For the bar behind */
-            z-index: 1;
-        }
-
-        /* The usage bar behind the text */
-        .p-bar {
-            position: absolute;
-            left: 0; top: 0; bottom: 0;
-            background: rgba(235, 111, 146, 0.15); /* Pinkish transparent */
-            border-left: 2px solid var(--brand-tertiary); /* Solid pink edge */
-            z-index: -1;
-            transition: width 0.5s;
-            pointer-events: none;
-        }
-
-        .p-name {
-            flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-weight: bold;
-        }
-
-        .p-val {
-            width: 50px;
-            text-align: right;
-            font-family: monospace;
-        }
-        .p-cpu { color: var(--brand-tertiary); } /* Pink */
+        .proc-row { display: flex; align-items: center; font-size: 0.8rem; padding: 4px 5px; position: relative; z-index: 1; }
+        .p-bar { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(235, 111, 146, 0.15); border-left: 2px solid var(--brand-tertiary); z-index: -1; transition: width 0.5s; pointer-events: none; }
+        .p-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; }
+        .p-val { width: 50px; text-align: right; font-family: monospace; }
+        .p-cpu { color: var(--brand-tertiary); }
         .p-mem { color: var(--text-muted); font-size: 0.7rem; }
-
-        /* Adaptive 1x1 */
         .app-card[data-cols="1"] .proc-header { display: none; }
         .app-card[data-cols="1"] .p-mem { display: none; }
-        .app-card[data-cols="1"] .proc-row { font-size: 0.7rem; padding: 2px 5px; }
 
-        /* --- UPTIME (Weather Style) --- */
-        .uptime-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            height: 100%;
-            width: 100%;
-        }
+        /* --- UPTIME --- */
+        .uptime-row { display: flex; align-items: center; justify-content: center; gap: 15px; height: 100%; width: 100%; }
         .uptime-icon { font-size: 2.5rem; }
         .uptime-info { display: flex; flex-direction: column; align-items: flex-start; }
         .uptime-val { font-size: 1.8rem; font-weight: bold; line-height: 1; }
         .uptime-boot { font-size: 0.8rem; opacity: 0.7; margin-top: 2px; }
 
-        /* --- CPU GRID (Per Core Graphs) --- */
-        .cpu-grid {
-            flex: 1;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            grid-auto-rows: 1fr;
-            gap: 5px;
-            overflow: hidden; /* Force fit within the card */
-            min-height: 0;
-        }
+        /* --- CPU GRID --- */
+        .cpu-grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); grid-auto-rows: 1fr; gap: 5px; overflow: hidden; min-height: 0; }
+        .core-graph-cell { background: rgba(0,0,0,0.2); border: 1px solid var(--border-dim); border-radius: 3px; position: relative; overflow: hidden; min-height: 40px; }
+        .core-graph-cell canvas { display: block; width: 100%; height: 100%; }
+        .core-meta { position: absolute; top: 2px; left: 4px; right: 4px; display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.8); z-index: 2; }
+        .c-val { font-weight: bold; color: var(--text-main); }
 
-        .core-graph-cell {
-            background: rgba(0,0,0,0.2);
-            border: 1px solid var(--border-dim);
-            border-radius: 3px;
-            position: relative; /* For absolute text positioning */
-            overflow: hidden;
-            min-height: 40px;
-        }
-
-        .core-graph-cell canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        .core-meta {
-            position: absolute;
-            top: 2px; left: 4px; right: 4px;
-            display: flex; justify-content: space-between;
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            pointer-events: none; /* Let clicks pass through to canvas */
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-            z-index: 2;
-        }
-
-        .c-val {
-            font-weight: bold;
-            color: var(--text-main);
-        }
-
-        /* --- SENSORS GRID (Vertical Minimalist) --- */
-        .sensor-grid {
-            flex: 1;
-            display: grid;
-            /* Fit as many 35px wide columns as possible */
-            grid-template-columns: repeat(auto-fit, minmax(35px, 1fr));
-            /* One row that stretches to fill the height */
-            grid-auto-rows: 1fr;
-            gap: 2px;
-            overflow-y: hidden; /* No scrolling, they fit horizontally */
-            padding-bottom: 5px;
-        }
-
-        .sensor-v-bar {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-end; /* Align content to bottom */
-            height: 100%;
-            padding: 5px 0;
-            position: relative;
-            transition: opacity 0.2s;
-        }
+        /* --- SENSORS --- */
+        .sensor-grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(35px, 1fr)); grid-auto-rows: 1fr; gap: 2px; overflow-y: hidden; padding-bottom: 5px; }
+        .sensor-v-bar { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; padding: 5px 0; position: relative; transition: opacity 0.2s; }
         .sensor-v-bar:hover { background: rgba(255,255,255,0.05); border-radius: 4px; }
-
-        /* 1. Temp Value (Top) */
-        .sv-val {
-            font-size: 0.8rem;
-            font-weight: bold;
-            font-family: monospace;
-            margin-bottom: 5px;
-            color: var(--text-main);
-        }
-
-        /* 2. The Bar (Middle - Flex to fill height) */
-        .sv-track {
-            flex: 1;
-            width: 6px; /* Thin bar */
-            background: var(--bg-highlight);
-            border-radius: 3px;
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 5px;
-        }
-        .sv-fill {
-            position: absolute;
-            bottom: 0; left: 0; width: 100%;
-            transition: height 0.5s ease-out;
-            border-radius: 3px;
-            min-height: 2px; /* Always show a speck */
-        }
-
-        /* 3. Name (Bottom - Vertical) */
-        .sv-name {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            /* Vertical Text Mode */
-            writing-mode: vertical-rl;
-            transform: rotate(180deg); /* Flip so it reads bottom-to-top */
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-height: 60px; /* Limit label height */
-        }
-
-        /* --- THRESHOLD COLORS --- */
-
-        /* < 45 (Cool/Idle) - Blue */
+        .sv-val { font-size: 0.8rem; font-weight: bold; font-family: monospace; margin-bottom: 5px; color: var(--text-main); }
+        .sv-track { flex: 1; width: 6px; background: var(--bg-highlight); border-radius: 3px; position: relative; overflow: hidden; margin-bottom: 5px; }
+        .sv-fill { position: absolute; bottom: 0; left: 0; width: 100%; transition: height 0.5s ease-out; border-radius: 3px; min-height: 2px; }
+        .sv-name { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: 60px; }
         .sensor-v-bar.cool .sv-fill { background: var(--blue); }
         .sensor-v-bar.cool .sv-val { color: var(--text-muted); }
-
-        /* 45-65 (Careful/Load) - Green (Success) */
         .sensor-v-bar.careful .sv-fill { background: var(--status-success); }
         .sensor-v-bar.careful .sv-val { color: var(--status-success); }
-
-        /* 65-80 (Warning) - Orange */
         .sensor-v-bar.warning .sv-fill { background: var(--status-warning); }
         .sensor-v-bar.warning .sv-val { color: var(--status-warning); }
-
-        /* > 80 (Critical) - Red */
         .sensor-v-bar.critical .sv-fill { background: var(--status-error); }
         .sensor-v-bar.critical .sv-val { color: var(--status-error); font-weight: 900; }
     `

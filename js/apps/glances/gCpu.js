@@ -1,14 +1,16 @@
-//
+// js/apps/glances/gCpu.js
 import { fetchGlances, drawGraph, HISTORY_SIZE } from "./gCore.js";
 
 export function initCpu(el, config) {
     const { url, apiVer, dataPoints } = config;
     const bodyEl = el.querySelector('.glances-body');
 
-    // 1. Setup DOM
+    // 1. Setup DOM (Using new Overlay Structure)
     bodyEl.innerHTML = `
-        <div class="canvas-wrapper"><canvas class="glances-graph"></canvas></div>
-        <div class="graph-meta"><span id="cpu-meta">--</span></div>`;
+        <div class="canvas-wrapper">
+            <canvas class="glances-graph"></canvas>
+            <div class="glances-overlay" id="cpu-meta">--</div>
+        </div>`;
 
     const canvas = el.querySelector('canvas');
     const ctx = canvas.getContext('2d');
@@ -38,10 +40,8 @@ export function initCpu(el, config) {
         let metaText = "C: ?";
 
         if (core && core.phys && core.log) {
-            // We have explicit Physical vs Logical data
             metaText = `C: ${core.phys} | T: ${core.log}`;
         } else if (cpu.cpucore) {
-            // Fallback: Glances v2/v3 often puts total count here
             metaText = `CPU: ${cpu.cpucore}`;
         }
 
@@ -53,8 +53,8 @@ export function initCpu(el, config) {
     };
 }
 
-// --- NEW: PER CORE (Grid) ---
 export function initPerCpu(el, config) {
+    // ... (This function remains unchanged as it has its own grid layout) ...
     const { url, apiVer } = config;
     const bodyEl = el.querySelector('.glances-body');
 

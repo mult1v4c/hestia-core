@@ -30,7 +30,7 @@ export class VirtualGrid {
     }
 
     /**
-     * Simple boolean check for empty space (Used by Resize Logic)
+     * Check if area is free (used by resize logic)
      */
     isAreaFree(x, y, w, h, ignoreId = null) {
         for (let r = 0; r < h; r++) {
@@ -38,10 +38,8 @@ export class VirtualGrid {
                 const targetY = y + r - 1;
                 const targetX = x + c - 1;
 
-                // 1. Check Bounds
                 if (!this.isInBounds(targetX, targetY)) return false;
 
-                // 2. Check Collision
                 const cellId = this.matrix[targetY][targetX];
                 if (cellId !== null && cellId !== ignoreId) {
                     return false;
@@ -89,8 +87,16 @@ export class VirtualGrid {
             return { possible: true, type: 'move', targetX, targetY, displaced: [] };
         }
 
+        // --- NEW SAFETY CHECK ---
+        // We must ensure that any app we displace does not accidentally land
+        // INSIDE the area the Source App is currently claiming (targetX, targetY).
+        // This prevents "Stacking" when the Old Source Pos and New Source Pos overlap.
+        const intersectsSourceNew = (nx, ny, w, h) => {
+            return (nx < targetX + sourceApp.cols && nx + w > targetX &&
+                    ny < targetY + sourceApp.rows && ny + h > targetY);
+        };
+
         // CASE B: ATOMIC SWAP (Big moves to Small/Empty)
-        // Check integrity: Are all collided apps fully inside our footprint?
         const isIntegritySound = collisions.every(c => {
             return c.x >= targetX &&
                    c.y >= targetY &&
@@ -109,47 +115,65 @@ export class VirtualGrid {
                 };
             });
 
-            if (this.canFitAt(proposedMoves, [sourceApp.id, ...collisions.map(c => c.id)])) {
+            // Validate
+            const ignoreIds = [sourceApp.id, ...collisions.map(c => c.id)];
+            let valid = this.canFitAt(proposedMoves, ignoreIds);
+
+            // Stacking Protection
+            if (valid) {
+                for (const m of proposedMoves) {
+                    if (intersectsSourceNew(m.nx, m.ny, m.app.cols, m.app.rows)) {
+                        valid = false; break;
+                    }
+                }
+            }
+
+            if (valid) {
                 return { possible: true, type: 'swap', targetX, targetY, displaced: proposedMoves };
             }
         }
 
         // CASE C: REVERSE CLEARANCE (Small moves to Big)
-        // If we hit exactly one app that is bigger/different
         if (collisions.length === 1) {
             const bigApp = collisions[0];
 
-            // Calculate Offset: Cursor vs Big App Origin
             const offsetX = targetX - bigApp.x;
             const offsetY = targetY - bigApp.y;
-
-            // Project Shadow: Big App moves to Source Origin, maintaining alignment
             const shadowX = sourceApp.x - offsetX;
             const shadowY = sourceApp.y - offsetY;
 
             const moveProposal = [{ app: bigApp, nx: shadowX, ny: shadowY }];
+            const ignoreIds = [sourceApp.id, bigApp.id];
 
-            // CRITICAL FIX: If swapping Small -> Big, snap Small to Big's Origin
-            // This prevents the Small app from "floating" inside the Big app's old hole
-            // and potentially colliding with the Big App's new location if close by.
-            if (this.canFitAt(moveProposal, [sourceApp.id, bigApp.id])) {
+            // 1. Try Snapping Big App to Shadow Position
+            let valid = this.canFitAt(moveProposal, ignoreIds);
+
+            // Stacking Protection
+            if (valid && intersectsSourceNew(shadowX, shadowY, bigApp.cols, bigApp.rows)) {
+                valid = false;
+            }
+
+            if (valid) {
                 return {
-                    possible: true,
-                    type: 'swap',
-                    targetX: bigApp.x, // SNAP TO ORIGIN
-                    targetY: bigApp.y, // SNAP TO ORIGIN
+                    possible: true, type: 'swap',
+                    targetX: bigApp.x, targetY: bigApp.y, // Snap Source to Big App Origin
                     displaced: moveProposal
                 };
             }
 
-            // Fallback: Try snapping Big App strictly to Source Origin
+            // 2. Fallback: Try Snapping Big App to Source Origin (Strict Swap)
             const strictProposal = [{ app: bigApp, nx: sourceApp.x, ny: sourceApp.y }];
-            if (this.canFitAt(strictProposal, [sourceApp.id, bigApp.id])) {
+            valid = this.canFitAt(strictProposal, ignoreIds);
+
+            // Stacking Protection
+            if (valid && intersectsSourceNew(sourceApp.x, sourceApp.y, bigApp.cols, bigApp.rows)) {
+                valid = false;
+            }
+
+            if (valid) {
                  return {
-                    possible: true,
-                    type: 'swap',
-                    targetX: bigApp.x,
-                    targetY: bigApp.y,
+                    possible: true, type: 'swap',
+                    targetX: bigApp.x, targetY: bigApp.y,
                     displaced: strictProposal
                 };
             }

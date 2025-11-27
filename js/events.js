@@ -33,7 +33,9 @@ export function initGlobalEvents() {
         const card = e.target.closest('.app-card');
         if (!card) return;
 
+        // Prevent default browser dragging/selection
         e.preventDefault();
+
         actItem = card;
         gridRect = gridLines.getBoundingClientRect();
 
@@ -43,8 +45,9 @@ export function initGlobalEvents() {
             mode = 'resize';
             initResizeX = e.clientX;
             initResizeY = e.clientY;
-            startCols = parseInt(actItem.dataset.cols);
-            startRows = parseInt(actItem.dataset.rows);
+            // Parse explicitly to ensure we have numbers
+            startCols = parseInt(actItem.dataset.cols) || 1;
+            startRows = parseInt(actItem.dataset.rows) || 1;
         } else {
             mode = 'move';
             // Setup Drag Visuals
@@ -84,8 +87,10 @@ export function initGlobalEvents() {
     function handleMoveLogic(e) {
         const cols = state.settings.theme.gridColumns || 10;
         const rows = state.settings.theme.gridRows || 6;
-        const cW = gridRect.width / cols;
-        const cH = gridRect.height / rows;
+
+        // Safety: Prevent divide by zero if grid is hidden
+        const cW = gridRect.width > 0 ? gridRect.width / cols : 100;
+        const cH = gridRect.height > 0 ? gridRect.height / rows : 100;
 
         const rawX = e.clientX - dragOffsetX - gridRect.left;
         const rawY = e.clientY - dragOffsetY - gridRect.top;
@@ -95,6 +100,8 @@ export function initGlobalEvents() {
 
         const appId = parseInt(actItem.dataset.id);
         const sourceApp = state.apps.find(a => a.id === appId);
+
+        if (!sourceApp) return;
 
         const vGrid = new VirtualGrid(cols, rows, state.apps);
         const result = vGrid.checkMove(sourceApp, nX, nY);
@@ -106,8 +113,8 @@ export function initGlobalEvents() {
     function handleResizeLogic(e) {
         const cols = state.settings.theme.gridColumns || 10;
         const rows = state.settings.theme.gridRows || 6;
-        const cW = gridRect.width / cols;
-        const cH = gridRect.height / rows;
+        const cW = gridRect.width > 0 ? gridRect.width / cols : 100;
+        const cH = gridRect.height > 0 ? gridRect.height / rows : 100;
 
         const deltaX = Math.round((e.clientX - initResizeX) / cW);
         const deltaY = Math.round((e.clientY - initResizeY) / cH);
@@ -118,12 +125,11 @@ export function initGlobalEvents() {
         const x = parseInt(actItem.dataset.x);
         const y = parseInt(actItem.dataset.y);
 
-        // Boundary Check
+        // Boundary Check (Clamp to Grid Edges)
         if (x + newCols - 1 > cols) newCols = cols - x + 1;
         if (y + newRows - 1 > rows) newRows = rows - y + 1;
 
         // COLLISION CHECK
-        // We prevent the resize if it would overlap with another app
         const vGrid = new VirtualGrid(cols, rows, state.apps);
         const appId = parseInt(actItem.dataset.id);
 
@@ -144,7 +150,7 @@ export function initGlobalEvents() {
 
         const dashboard = qs('#dashboard');
 
-        // Main Ghost
+        // Main Ghost (Where the dragged item will land)
         const mainGhost = createGhost(
             result.targetX || sourceApp.x,
             result.targetY || sourceApp.y,
@@ -155,7 +161,7 @@ export function initGlobalEvents() {
         dashboard.appendChild(mainGhost);
         ghosts.push(mainGhost);
 
-        // Displaced Ghosts
+        // Displaced Ghosts (Where the swapped items will go)
         if (result.possible && result.displaced && result.displaced.length > 0) {
             result.displaced.forEach(disp => {
                 const g = createGhost(
@@ -179,16 +185,34 @@ export function initGlobalEvents() {
     }
 
     function onMouseUp() {
-        // Clean Ghosts
+        // 1. Cleanup Listeners FIRST (Prevents "Fail Completely" if error occurs below)
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        if (updateFrame) cancelAnimationFrame(updateFrame);
+
+        // 2. Cleanup Visuals
         ghosts.forEach(g => g.remove());
         ghosts = [];
+
+        if (!actItem) return;
 
         const appId = parseInt(actItem.dataset.id);
         const app = state.apps.find(a => a.id === appId);
 
-        if (mode === 'move') {
-            // FIX: Clean styles immediately
+        // CRITICAL SAFETY CHECK
+        if (!app) {
+            console.error("Resize Error: App state missing for ID", appId);
+            // Reset visual state of actItem
             actItem.classList.remove('moving');
+            actItem.style = '';
+            if (actItem.dataset.x) applyGridPosition(actItem, actItem.dataset.x, actItem.dataset.y, actItem.dataset.cols, actItem.dataset.rows);
+            actItem = null;
+            return;
+        }
+
+        if (mode === 'move') {
+            actItem.classList.remove('moving');
+            // Reset fixed position styles
             actItem.style.position = '';
             actItem.style.width = '';
             actItem.style.height = '';
@@ -213,25 +237,31 @@ export function initGlobalEvents() {
                 saveGridState();
                 renderGrid();
             } else {
-                // REVERT: Explicitly restore original grid position
+                // REVERT
                 applyGridPosition(actItem, app.x, app.y, app.cols, app.rows);
-                renderGrid();
+                renderGrid(); // Force re-render to ensure consistency
             }
         }
         else if (mode === 'resize') {
             // Commit Resize
-            if (actItem.dataset.newCols) {
+            // Check if dataset was actually updated during drag
+            if (actItem.dataset.newCols && actItem.dataset.newRows) {
                 app.cols = parseInt(actItem.dataset.newCols);
                 app.rows = parseInt(actItem.dataset.newRows);
+
+                // Cleanup dataset
                 delete actItem.dataset.newCols;
                 delete actItem.dataset.newRows;
+
                 saveGridState();
             }
-            // Ensure visual consistency
-            applyGridPosition(actItem, app.x, app.y, app.cols, app.rows);
-            // Remove inline styles that might conflict
+
+            // Clean up manual styles applied during resize
             actItem.style.gridColumnEnd = '';
             actItem.style.gridRowEnd = '';
+
+            // Re-apply finalized grid position
+            applyGridPosition(actItem, app.x, app.y, app.cols, app.rows);
             renderGrid();
         }
 
@@ -239,10 +269,6 @@ export function initGlobalEvents() {
         actItem = null;
         lastMoveResult = null;
         mode = null;
-        if (updateFrame) cancelAnimationFrame(updateFrame);
-
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
     }
 }
 

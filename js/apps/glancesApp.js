@@ -356,110 +356,19 @@ registry.register('glances', GlancesApp, {
         .app-card[data-cols="1"] .p-mem { display: none; }
         .app-card[data-cols="1"] .proc-row { font-size: 0.7rem; padding: 2px 5px; }
 
-        /* --- UPTIME SPECIFIC STYLES (Grid Based) --- */
-        .uptime-wrapper {
-            /* Absolute anchor to fill the card exactly */
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            padding: 8px;
-            color: var(--text-main);
-        }
-
-        .ut-grid {
-            display: grid;
-            width: 100%;
-            height: 100%;
-            /* Default to a centered single column for stability */
-            grid-template-columns: 1fr;
-            grid-template-rows: auto 1fr;
-            align-items: center;
-            justify-items: center;
-            gap: 5px;
-        }
-
-        .ut-cell {
+        /* --- UPTIME (Weather Style) --- */
+        .uptime-row {
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-        }
-
-        .ut-icon i {
-            color: var(--brand-secondary);
-            opacity: 0.9;
-            font-size: 2.5rem; /* Default size */
-        }
-
-        .ut-info {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-        }
-
-        .ut-label {
-            font-size: 0.6rem;
-            font-weight: bold;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 2px;
-        }
-
-        .ut-val {
-            font-family: monospace;
-            font-weight: bold;
-            white-space: nowrap;
-            font-size: 1.8rem; /* Default size */
-            line-height: 1.2;
-        }
-
-        .ut-boot {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            opacity: 0.7;
-            white-space: nowrap;
-            margin-top: 2px;
-        }
-
-        /* --- RESPONSIVE GRID LOGIC --- */
-
-        /* 1. EXACTLY 1x1: Compact Stack */
-        .app-card[data-cols="1"][data-rows="1"] .ut-icon i { font-size: 1.6rem; }
-        .app-card[data-cols="1"][data-rows="1"] .ut-val { font-size: 1.1rem; }
-        .app-card[data-cols="1"][data-rows="1"] .ut-label { display: none; } /* Too small for label */
-        .app-card[data-cols="1"][data-rows="1"] .ut-boot { font-size: 0.6rem; }
-        .app-card[data-cols="1"][data-rows="1"] .ut-grid { gap: 2px; }
-
-        /* 2. WIDE (e.g. 2x1, 3x1): Horizontal Split */
-        /* Switch grid to 2 columns */
-        .app-card[data-rows="1"]:not([data-cols="1"]) .ut-grid {
-            grid-template-columns: auto 1fr;
-            grid-template-rows: 1fr;
             gap: 15px;
-            padding: 0 10px;
+            height: 100%;
+            width: 100%;
         }
-        .app-card[data-rows="1"]:not([data-cols="1"]) .ut-icon i { font-size: 2rem; }
-        .app-card[data-rows="1"]:not([data-cols="1"]) .ut-val { font-size: 1.4rem; }
-        /* Left align text in wide mode */
-        .app-card[data-rows="1"]:not([data-cols="1"]) .ut-info { align-items: flex-start; text-align: left; }
-
-        /* 3. TALL (e.g. 1x2, 1x3): Vertical Stack */
-        /* Keep 1 column, but add spacing */
-        .app-card[data-cols="1"]:not([data-rows="1"]) .ut-grid {
-            grid-template-rows: auto auto;
-            gap: 15px;
-        }
-        .app-card[data-cols="1"]:not([data-rows="1"]) .ut-icon i { font-size: 2.5rem; }
-        .app-card[data-cols="1"]:not([data-rows="1"]) .ut-val { font-size: 1.4rem; }
-
-        /* 4. LARGE (2x2+): Big Centered */
-        .app-card:not([data-cols="1"]):not([data-rows="1"]) .ut-grid {
-            gap: 15px;
-        }
-        .app-card:not([data-cols="1"]):not([data-rows="1"]) .ut-icon i { font-size: 3.5rem; }
-        .app-card:not([data-cols="1"]):not([data-rows="1"]) .ut-val { font-size: 2rem; }
-        .app-card:not([data-cols="1"]):not([data-rows="1"]) .ut-boot { font-size: 0.9rem; }
+        .uptime-icon { font-size: 2.5rem; }
+        .uptime-info { display: flex; flex-direction: column; align-items: flex-start; }
+        .uptime-val { font-size: 1.8rem; font-weight: bold; line-height: 1; }
+        .uptime-boot { font-size: 0.8rem; opacity: 0.7; margin-top: 2px; }
 
         /* --- CPU GRID (Per Core Graphs) --- */
         .cpu-grid {

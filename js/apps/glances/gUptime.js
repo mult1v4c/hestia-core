@@ -1,4 +1,3 @@
-//
 import { fetchGlances } from "./gCore.js";
 
 export function initUptime(el, config) {
@@ -7,15 +6,22 @@ export function initUptime(el, config) {
 
     // 1. Setup DOM
     bodyEl.innerHTML = `
-        <div class="uptime-container">
-            <div class="ut-icon"><i class="fa-solid fa-stopwatch"></i></div>
-            <div class="ut-val" id="uptime-val">--</div>
-            <div class="ut-boot" id="boot-time">Booted: --</div>
+        <div class="uptime-wrapper">
+            <div class="ut-grid">
+                <div class="ut-cell icon-cell">
+                    <i class="fa-solid fa-clock" style="font-size: inherit;"></i>
+                </div>
+                <div class="ut-cell info-cell">
+                    <div class="ut-label">SYSTEM UP</div>
+                    <div class="ut-val" id="uptime-val">--</div>
+                    <div class="ut-boot" id="boot-time">Booted: --</div>
+                </div>
+            </div>
         </div>
     `;
 
-    const titleEl = el.querySelector('.metric-title');
-    const valEl = el.querySelector('.metric-value');
+    const valEl = el.querySelector('#uptime-val');
+    const bootEl = el.querySelector('#boot-time');
 
     // 2. Return Update Function
     return async () => {
@@ -26,22 +32,18 @@ export function initUptime(el, config) {
 
         // --- FIX: Handle String Response ("4 days, 14:14:22") ---
         if (typeof raw === 'string' && raw.includes(':')) {
-            // Regex for "X days, HH:MM:SS"
             const daysMatch = raw.match(/(\d+)\s+days?,\s+(\d+):(\d+):(\d+)/);
-            // Regex for just "HH:MM:SS" (less than a day)
             const timeMatch = raw.match(/^(\d+):(\d+):(\d+)$/);
 
             if (daysMatch) {
-                const d = parseInt(daysMatch[1]);
-                const h = parseInt(daysMatch[2]);
-                const m = parseInt(daysMatch[3]);
-                const s = parseInt(daysMatch[4]);
-                seconds = (d * 86400) + (h * 3600) + (m * 60) + s;
+                seconds = (parseInt(daysMatch[1]) * 86400) +
+                          (parseInt(daysMatch[2]) * 3600) +
+                          (parseInt(daysMatch[3]) * 60) +
+                          parseInt(daysMatch[4]);
             } else if (timeMatch) {
-                const h = parseInt(timeMatch[1]);
-                const m = parseInt(timeMatch[2]);
-                const s = parseInt(timeMatch[3]);
-                seconds = (h * 3600) + (m * 60) + s;
+                seconds = (parseInt(timeMatch[1]) * 3600) +
+                          (parseInt(timeMatch[2]) * 60) +
+                          parseInt(timeMatch[3]);
             }
         } else {
             // Handle numeric or object response
@@ -52,28 +54,22 @@ export function initUptime(el, config) {
         // -------------------------------------------------------
 
         // Calculate Display Values
-        const d = Math.floor(seconds / (3600*24));
-        const h = Math.floor(seconds % (3600*24) / 3600);
-        const m = Math.floor(seconds % 3600 / 60);
+        const d = Math.floor(seconds / 86400);
+        const h = Math.floor((seconds % 86400) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
 
         let timeStr = "";
         if (d > 0) timeStr += `${d}d `;
-        if (h > 0) timeStr += `${h}h `;
+        if (h > 0 || d > 0) timeStr += `${h}h `;
         timeStr += `${m}m`;
 
-        // Update Header
-        titleEl.innerText = "SYSTEM UP";
-        // If days > 0, show days; else show hours
-        valEl.innerText = d > 0 ? `${d} Days` : `${h} Hours`;
-
         // Update Body
-        el.querySelector('#uptime-val').innerText = timeStr || "Just started";
+        valEl.innerText = timeStr || "0m";
 
         // Calculate Boot Date
-        // Note: This might be slightly off if 'seconds' isn't precise, but it's a good estimate
         if (seconds > 0) {
             const bootDate = new Date(Date.now() - (seconds * 1000));
-            el.querySelector('#boot-time').innerText = "Booted: " + bootDate.toLocaleDateString();
+            bootEl.innerText = "Boot: " + bootDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         }
     };
 }

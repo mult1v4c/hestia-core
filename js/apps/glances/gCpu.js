@@ -113,9 +113,9 @@ export function initPerCpu(el, config) {
             cell.querySelector('.c-val').innerText = val.toFixed(0) + '%';
 
             // Determine Color based on load
-            let colorVar = '--status-success'; // Green
-            if (val > 80) colorVar = '--status-error'; // Red
-            else if (val > 50) colorVar = '--status-warning'; // Orange
+            // let colorVar = '--status-success'; // Green
+            // if (val > 80) colorVar = '--status-error'; // Red
+            // else if (val > 50) colorVar = '--status-warning'; // Orange
 
             // Update History
             if (!coresHistory[i]) coresHistory[i] = new Array(HISTORY_SIZE).fill(0);
@@ -132,7 +132,7 @@ export function initPerCpu(el, config) {
                  canvas.height = cell.clientHeight;
             }
 
-            drawGraph(canvas, ctx, coresHistory[i], colorVar);
+            drawGraph(canvas, ctx, coresHistory[i], '--red');
         });
     };
 }

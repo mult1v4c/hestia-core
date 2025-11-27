@@ -4,12 +4,12 @@
 
 .app-card {
     background-color: var(--bg-surface);
-    border: 1px solid transparent;
+    border: 1px solid transparent; /* Default transparent border */
     border-radius: var(--radius);
     display: flex; flex-direction: column; justify-content: center; align-items: center;
     position: relative; z-index: 10;
 
-    /* Smooth transitions for Grid Swapping */
+    /* Smooth transitions for Grid Swapping & Theme Toggles */
     transition: box-shadow 0.2s, background-color 0.2s, border-color 0.2s,
                 grid-column 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
                 grid-row 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -18,10 +18,23 @@
     overflow: hidden; min-height: 0; min-width: 0;
 }
 
+/* --- THEME TOGGLES --- */
+
+/* Shadows */
+body.shadow-on .app-card {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Outlines */
+/* This overrides the transparent border above */
+.dashboard-container.show-outlines .app-card {
+    border-color: var(--border-dim);
+}
+
 /* --- EDIT MODE --- */
 .dashboard-container.edit-mode .app-card {
     cursor: grab;
-    border-color: var(--border-bright);
+    border-color: var(--border-bright); /* Edit mode forces outlines */
     border-style: solid;
     animation: shake-gentle 0.25s infinite;
 }
@@ -31,12 +44,10 @@
 .dashboard-container.edit-mode .app-card.moving {
     cursor: grabbing;
     opacity: 0.9;
-    z-index: 1000; /* Top of everything */
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5); /* Heavier shadow when dragging */
     animation: none;
     transform: scale(1.02);
-
-    /* Disable layout transitions so it follows mouse instantly */
     transition: none;
 }
 
@@ -48,8 +59,6 @@
     z-index: 1;
     opacity: 0.5;
     pointer-events: none;
-
-    /* The ghost should animate smoothly into new spots */
     transition: grid-column 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
                 grid-row 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
@@ -59,7 +68,30 @@
     background-color: rgb(from var(--status-error) r g b / 20%) !important;
 }
 
-/* ... Rest of file (Controls, Meta, Animations) ... */
+/* Base Ghost Styles (Refining the ghost visuals) */
+.grid-ghost.ghost-valid {
+    border-color: var(--status-success);
+    background: rgba(var(--status-success-rgb, 161, 181, 108), 0.1);
+}
+
+.grid-ghost.ghost-invalid {
+    border-color: var(--status-error);
+    background: rgba(var(--status-error-rgb, 171, 70, 66), 0.1);
+}
+
+.grid-ghost.ghost-displaced {
+    border-color: var(--status-warning);
+    background: rgba(var(--status-warning-rgb, 247, 202, 136), 0.1);
+    animation: pulse-ghost 1s infinite;
+}
+
+@keyframes pulse-ghost {
+    0% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+    100% { opacity: 0.4; }
+}
+
+/* Controls */
 .edit-btn, .delete-btn {
     position: absolute; width: 30px; height: 30px;
     border-radius: 4px; color: white;
@@ -101,42 +133,4 @@
 
 @media (max-width: 768px) {
     .app-card { width: 100%; min-height: 150px; grid-column: auto !important; grid-row: auto !important; }
-}
-
-/* css/cards.css - Additions */
-
-/* Base Ghost */
-.grid-ghost {
-    border: 2px dashed rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius);
-    z-index: 1;
-    pointer-events: none;
-    transition: all 0.1s ease-out; /* Snappy follow */
-}
-
-/* Valid Move (Green-ish) */
-.grid-ghost.ghost-valid {
-    border-color: var(--status-success);
-    background: rgba(var(--status-success-rgb, 161, 181, 108), 0.1);
-}
-
-/* Invalid Move (Red-ish) */
-.grid-ghost.ghost-invalid {
-    border-color: var(--status-error);
-    background: rgba(var(--status-error-rgb, 171, 70, 66), 0.1);
-}
-
-/* Displaced / Remote Ghost (Yellow/Orange-ish) */
-/* This shows where the swapped items will land */
-.grid-ghost.ghost-displaced {
-    border-color: var(--status-warning);
-    background: rgba(var(--status-warning-rgb, 247, 202, 136), 0.1);
-    animation: pulse-ghost 1s infinite;
-}
-
-@keyframes pulse-ghost {
-    0% { opacity: 0.4; }
-    50% { opacity: 0.7; }
-    100% { opacity: 0.4; }
 }

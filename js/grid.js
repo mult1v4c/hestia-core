@@ -9,35 +9,26 @@ import { VirtualGrid } from "./grid/virtualGrid.js";
 // GRID RENDERING (Reconciliation)
 // -----------------------------
 
-/**
- * Re-renders the grid by updating existing nodes and creating new ones.
- * Uses reconciliation to avoid destroying DOM nodes (preserving iframes/canvas).
- */
 export async function renderGrid() {
     const dashboard = qs('#dashboard');
     if (!dashboard) return;
 
-    // 1. Render Background Lines
     renderGridLines();
 
     const apps = state.apps;
-
-    // 2. Map Existing DOM Elements
-    // We map them by ID so we can find them instantly
     const domMap = new Map();
     qsa('.app-card', dashboard).forEach(el => {
         const id = parseInt(el.dataset.id);
         if (id) domMap.set(id, el);
     });
 
-    // 3. Reconcile: Create or Update
     for (const app of apps) {
         let el = domMap.get(app.id);
 
         if (el) {
             // --- UPDATE EXISTING ---
-            // We only touch the DOM if the position changed.
-            // This prevents jitter and allows CSS transitions to work.
+
+            // 1. Position Check
             const currentX = parseInt(el.dataset.x);
             const currentY = parseInt(el.dataset.y);
             const currentW = parseInt(el.dataset.cols);
@@ -47,7 +38,21 @@ export async function renderGrid() {
                 applyGridPosition(el, app.x, app.y, app.cols, app.rows);
             }
 
-            // Remove from map to indicate it has been processed
+            // 2. Content & Style Check (Fix for "Edits not showing")
+            // We create a signature of the data to see if it changed
+            const dataHash = JSON.stringify(app.data || {}) + app.name;
+            const currentHash = el.dataset.contentHash;
+
+            // Always update basic styles (fast)
+            if (app.data?.bgColor) el.style.backgroundColor = app.data.bgColor;
+            if (app.data?.textColor) el.style.color = app.data.textColor;
+
+            // If content changed, re-mount the inner app
+            if (dataHash !== currentHash) {
+                await mountAppContent(el, app);
+                el.dataset.contentHash = dataHash;
+            }
+
             domMap.delete(app.id);
         } else {
             // --- CREATE NEW ---
@@ -56,13 +61,9 @@ export async function renderGrid() {
         }
     }
 
-    // 4. Cleanup: Remove elements that are no longer in state
     domMap.forEach(el => el.remove());
 }
 
-/**
- * Creates the DOM element for a single app card.
- */
 async function createAppElement(app) {
     const el = createEl('div', {
         class: 'app-card',
@@ -72,40 +73,47 @@ async function createAppElement(app) {
         }
     });
 
-    // Apply initial position
     applyGridPosition(el, app.x, app.y, app.cols, app.rows);
 
-    // Style basics
+    // Initial Styles
     if (app.data?.bgColor) el.style.backgroundColor = app.data.bgColor;
     if (app.data?.textColor) el.style.color = app.data.textColor;
 
-    const appDef = registry.get(app.subtype);
-    if (!appDef) {
-        el.innerHTML = 'Unknown App';
-        return el;
-    }
+    // Initial Hash
+    el.dataset.contentHash = JSON.stringify(app.data || {}) + app.name;
 
-    const appInstance = new appDef.Class();
-    const innerHTML = await appInstance.render(app);
-
-    el.innerHTML = `
-        ${innerHTML}
-        <div class="resize-handle"></div>
-        <div class="card-meta">${app.cols}x${app.rows}</div>
-        <div class="edit-btn" title="Edit App"><i class="fa-solid fa-pencil"></i></div>
-        <div class="delete-btn" title="Delete App"><i class="fa-solid fa-trash"></i></div>
-    `;
-
-    if (appInstance.onMount) {
-        setTimeout(() => appInstance.onMount(el, app), 0);
-    }
+    await mountAppContent(el, app);
 
     return el;
 }
 
-/**
- * Helper to apply CSS Grid styles to an element
- */
+// Extracted logic to allow re-mounting existing apps
+async function mountAppContent(el, app) {
+    const appDef = registry.get(app.subtype);
+
+    let innerHTML = 'Unknown App';
+    if (appDef) {
+        const appInstance = new appDef.Class();
+        innerHTML = await appInstance.render(app);
+
+        // Re-inject structure
+        el.innerHTML = `
+            ${innerHTML}
+            <div class="resize-handle"></div>
+            <div class="card-meta">${app.cols}x${app.rows}</div>
+            <div class="edit-btn" title="Edit App"><i class="fa-solid fa-pencil"></i></div>
+            <div class="delete-btn" title="Delete App"><i class="fa-solid fa-trash"></i></div>
+        `;
+
+        // Trigger Lifecycle
+        if (appInstance.onMount) {
+            setTimeout(() => appInstance.onMount(el, app), 0);
+        }
+    } else {
+        el.innerHTML = innerHTML;
+    }
+}
+
 export function applyGridPosition(el, x, y, w, h) {
     el.style.gridColumn = `${x} / span ${w}`;
     el.style.gridRow = `${y} / span ${h}`;
@@ -134,32 +142,17 @@ export function renderGridLines() {
     }
 }
 
-/**
- * Helper to find the first empty slot for a new widget.
- * Uses VirtualGrid for efficient scanning.
- */
 export function findEmptySlot(w, h) {
     const cols = parseInt(state.settings.theme.gridColumns) || 10;
     const rows = parseInt(state.settings.theme.gridRows) || 6;
-
-    // Use the class we just wrote!
     const vGrid = new VirtualGrid(cols, rows, state.apps);
 
-    // Naive scan top-to-bottom, left-to-right
     for (let y = 1; y <= rows; y++) {
         for (let x = 1; x <= cols; x++) {
-            // Check bounds
             if (x + w - 1 > cols || y + h - 1 > rows) continue;
-
-            // Check collision using our new method
-            const collisions = vGrid.getAppsInArea(x, y, w, h);
-            if (collisions.length === 0) {
-                return { x, y };
-            }
+            if (vGrid.isAreaFree(x, y, w, h)) return { x, y };
         }
     }
-
-    // Fallback if full
     return { x: 1, y: 1 };
 }
 
@@ -167,6 +160,4 @@ export function saveGridState() {
     saveState();
 }
 
-export function sanitizeGrid() {
-    // Deprecated in favor of VirtualGrid logic, but kept for compatibility
-}
+export function sanitizeGrid() {}

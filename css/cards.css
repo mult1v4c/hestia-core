@@ -8,7 +8,12 @@
     border-radius: var(--radius);
     display: flex; flex-direction: column; justify-content: center; align-items: center;
     position: relative; z-index: 10;
-    transition: box-shadow 0.2s, background-color 0.2s;
+
+    /* ADDED: Smooth transitions for Grid Swapping */
+    transition: box-shadow 0.2s, background-color 0.2s, border-color 0.2s,
+                grid-column 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+                grid-row 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+
     color: var(--text-main);
     overflow: hidden; min-height: 0; min-width: 0;
 }
@@ -30,15 +35,19 @@
     cursor: grab;
     border-color: var(--border-bright);
     border-style: solid;
-    transition: box-shadow 0.2s, background-color 0.2s, border-color 0.2s;
     animation: shake-gentle 0.25s infinite;
 }
 .dashboard-container.edit-mode .app-card:hover { border-color: var(--brand-primary); }
+
 .dashboard-container.edit-mode .app-card.moving {
     cursor: grabbing; opacity: 0.8; z-index: 100;
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
     animation: none; transform: scale(1.005);
+
+    /* DISABLE TRANSITION while dragging so it follows mouse instantly */
+    transition: none;
 }
+
 .app-card.collision {
     border-color: var(--status-error) !important;
     background-color: rgb(from var(--status-error) r g b / 20%) !important;

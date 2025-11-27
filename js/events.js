@@ -1,42 +1,31 @@
 // js/events.js
 import { state, setState } from "./state.js";
-import { qs, qsa, on } from "./dom.js";
-import { applyGridPosition, checkCollision, saveGridState, renderGrid } from "./grid.js";
+import { qs } from "./dom.js";
+import { saveGridState, renderGrid } from "./grid.js";
+import { VirtualGrid } from "./grid/virtualGrid.js";
 import { showToast } from "./ui/toasts.js";
-import { saveState } from "./storage.js"; // Needed for edit mode toggle saves
 
 // Drag State
 let actItem = null;
 let initX, initY;
 let sGX, sGY, sC, sR; // Start Grid X, Y, Cols, Rows
-let mode = null; // 'move' or 'resize'
+let mode = null;
 let gridRect;
+let updateFrame = null;
 
-/**
- * Initialize all global event listeners
- */
 export function initGlobalEvents() {
     const dashboard = qs('#dashboard');
     const gridLines = qs('#gridLines');
 
     if (!dashboard || !gridLines) {
-        console.error("Dashboard or GridLines not found. Retrying in 100ms...");
         setTimeout(initGlobalEvents, 100);
         return;
     }
 
-    // -----------------------------
-    // DRAG & DROP / RESIZE LOGIC
-    // -----------------------------
-
     dashboard.addEventListener('mousedown', e => {
-        // Only allow interaction in Edit Mode
         if (!state.ui.editMode) return;
-
-        // Ignore clicks on buttons/inputs inside cards
         if (e.target.closest('.delete-btn') || e.target.closest('.edit-btn')) return;
 
-        // Identify Target
         if (e.target.classList.contains('resize-handle')) {
             mode = 'resize';
             actItem = e.target.parentElement;
@@ -49,97 +38,127 @@ export function initGlobalEvents() {
 
         e.preventDefault();
 
-        // Capture Initial State
         initX = e.clientX;
         initY = e.clientY;
 
-        // Capture Element Grid State
-        sGX = parseInt(actItem.dataset.x) || 1;
-        sGY = parseInt(actItem.dataset.y) || 1;
-        sC = parseInt(actItem.dataset.cols) || 1;
-        sR = parseInt(actItem.dataset.rows) || 1;
+        sGX = parseInt(actItem.dataset.x);
+        sGY = parseInt(actItem.dataset.y);
+        sC = parseInt(actItem.dataset.cols);
+        sR = parseInt(actItem.dataset.rows);
 
-        // Capture Grid Dimensions for Math
         gridRect = gridLines.getBoundingClientRect();
-
         actItem.classList.add('moving');
 
-        // Bind Move/Up to Document to catch fast movements outside dashboard
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
     });
 
     function onMouseMove(e) {
         if (!actItem) return;
+        if (updateFrame) return;
 
+        updateFrame = requestAnimationFrame(() => {
+            handleDrag(e);
+            updateFrame = null;
+        });
+    }
+
+    function handleDrag(e) {
         const cols = state.settings.theme.gridColumns || 10;
         const rows = state.settings.theme.gridRows || 6;
-
-        // Calculate Cell Size dynamically
         const cW = gridRect.width / cols;
         const cH = gridRect.height / rows;
 
-        // Calculate Delta (How many cells did we move?)
         const gDx = Math.round((e.clientX - initX) / cW);
         const gDy = Math.round((e.clientY - initY) / cH);
-
-        const maxC = cols + 1;
-        const maxR = rows + 1;
 
         if (mode === 'move') {
             let nX = sGX + gDx;
             let nY = sGY + gDy;
 
-            // Clamp to Grid Boundaries
             if (nX < 1) nX = 1;
             if (nY < 1) nY = 1;
-            if (nX + sC > maxC) nX = maxC - sC;
-            if (nY + sR > maxR) nY = maxR - sR;
+            if (nX + sC - 1 > cols) nX = cols - sC + 1;
+            if (nY + sR - 1 > rows) nY = rows - sR + 1;
 
-            // Check Collision & Apply
-            if (!checkCollision(actItem, nX, nY, sC, sR)) {
-                applyGridPosition(actItem, nX, nY, sC, sR);
-                actItem.classList.remove('collision');
-            } else {
-                actItem.classList.add('collision');
+            const currentApp = state.apps.find(a => a.id === parseInt(actItem.dataset.id));
+            if (currentApp.x === nX && currentApp.y === nY) return;
+
+            // --- SWAP LOGIC START ---
+            const vGrid = new VirtualGrid(cols, rows, state.apps);
+            const targetId = vGrid.getAppAt(nX, nY);
+
+            // 1. FREE MOVE: Is the target slot completely empty?
+            if (vGrid.isAreaFree(nX, nY, sC, sR, currentApp.id)) {
+                currentApp.x = nX;
+                currentApp.y = nY;
+                renderGrid();
             }
+            // 2. SWAP: We hit another card. Can we swap?
+            else if (targetId && targetId !== currentApp.id) {
+                const targetApp = state.apps.find(a => a.id === targetId);
+
+                // Check A: Does the target card fit in OUR old spot?
+                // We exclude currentApp.id because it is leaving that spot.
+                const canTargetMove = vGrid.isAreaFree(currentApp.x, currentApp.y, targetApp.cols, targetApp.rows, [currentApp.id, targetApp.id]);
+
+                // Check B: Do WE fit in the target's spot?
+                // We exclude targetApp.id because it is moving away.
+                // We exclude currentApp.id because we are moving in.
+                const canSourceMove = vGrid.isAreaFree(targetApp.x, targetApp.y, currentApp.cols, currentApp.rows, [currentApp.id, targetApp.id]);
+
+                if (canTargetMove && canSourceMove) {
+                    // Perform Swap
+                    const oldX = currentApp.x;
+                    const oldY = currentApp.y;
+
+                    // We take their exact spot (snap to grid), not just mouse position
+                    currentApp.x = targetApp.x;
+                    currentApp.y = targetApp.y;
+
+                    targetApp.x = oldX;
+                    targetApp.y = oldY;
+
+                    renderGrid();
+                }
+            }
+            // --- SWAP LOGIC END ---
+
         } else if (mode === 'resize') {
             let nC = sC + gDx;
             let nR = sR + gDy;
 
-            // Clamp Minimum Size
             if (nC < 1) nC = 1;
             if (nR < 1) nR = 1;
+            if (sGX + nC - 1 > cols) nC = cols - sGX + 1;
+            if (sGY + nR - 1 > rows) nR = rows - sGY + 1;
 
-            // Clamp Maximum Size (Grid Boundary)
-            if (sGX + nC > maxC) nC = maxC - sGX;
-            if (sGY + nR > maxR) nR = maxR - sGY;
+            const currentApp = state.apps.find(a => a.id === parseInt(actItem.dataset.id));
+            if (currentApp.cols === nC && currentApp.rows === nR) return;
 
-            // Check Collision & Apply
-            if (!checkCollision(actItem, sGX, sGY, nC, nR)) {
-                applyGridPosition(actItem, sGX, sGY, nC, nR);
-                actItem.classList.remove('collision');
-            } else {
-                actItem.classList.add('collision');
+            const vGrid = new VirtualGrid(cols, rows, state.apps);
+
+            if (vGrid.isAreaFree(sGX, sGY, nC, nR, currentApp.id)) {
+                currentApp.cols = nC;
+                currentApp.rows = nR;
+                renderGrid();
             }
         }
     }
 
     function onMouseUp() {
         if (actItem) {
-            actItem.classList.remove('moving', 'collision');
-            saveGridState(); // Persist changes
+            actItem.classList.remove('moving');
+            saveGridState();
         }
-
         actItem = null;
+        if (updateFrame) cancelAnimationFrame(updateFrame);
+        updateFrame = null;
+
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
     }
 }
-
-// -----------------------------
-// UI TOGGLE HANDLERS
-// -----------------------------
 
 export function toggleEditMode() {
     const isEdit = !state.ui.editMode;
@@ -151,30 +170,22 @@ export function toggleEditMode() {
     const clearBtn = qs('#clearBtn');
 
     if (isEdit) {
-        // Enter Edit Mode
         dashboard.classList.add('edit-mode');
-
         editBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i>';
         editBtn.title = 'Save Layout';
         editBtn.classList.remove('btn-primary');
         editBtn.style.borderColor = "var(--brand-primary)";
-
         addBtn.disabled = false;
         if(clearBtn) clearBtn.disabled = false;
-
         showToast("Edit Mode Enabled");
     } else {
-        // Exit Edit Mode
         dashboard.classList.remove('edit-mode');
-
         editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
         editBtn.title = 'Edit Layout';
         editBtn.classList.add('btn-primary');
-
         addBtn.disabled = true;
         if(clearBtn) clearBtn.disabled = true;
-
-        saveState();
+        saveGridState();
         showToast("Layout Saved");
     }
 }

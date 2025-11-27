@@ -1,40 +1,63 @@
-//
-import { state, setState } from "./state.js";
+// js/grid.js
+import { state } from "./state.js";
 import { saveState } from "./storage.js";
 import { createEl, qs, qsa } from "./dom.js";
-import { showToast } from "./ui/toasts.js";
-
-// IMPORT THE REGISTRY
 import { registry } from "./registry.js";
-
-let cachedApps = [];
+import { VirtualGrid } from "./grid/virtualGrid.js";
 
 // -----------------------------
-// GRID RENDERING
+// GRID RENDERING (Reconciliation)
 // -----------------------------
 
 /**
- * Re-renders the entire grid based on the current state.
+ * Re-renders the grid by updating existing nodes and creating new ones.
+ * Uses reconciliation to avoid destroying DOM nodes (preserving iframes/canvas).
  */
 export async function renderGrid() {
     const dashboard = qs('#dashboard');
     if (!dashboard) return;
 
-    const apps = state.apps;
-
-    // 1. Render Grid Background (Lines)
+    // 1. Render Background Lines
     renderGridLines();
 
-    // 2. Clear existing apps from DOM to prevent duplication
-    const existingCards = qsa('.app-card', dashboard);
-    existingCards.forEach(el => el.remove());
+    const apps = state.apps;
 
-    // 3. Render Apps
+    // 2. Map Existing DOM Elements
+    // We map them by ID so we can find them instantly
+    const domMap = new Map();
+    qsa('.app-card', dashboard).forEach(el => {
+        const id = parseInt(el.dataset.id);
+        if (id) domMap.set(id, el);
+    });
+
+    // 3. Reconcile: Create or Update
     for (const app of apps) {
-        const el = await createAppElement(app);
-        dashboard.appendChild(el);
+        let el = domMap.get(app.id);
 
+        if (el) {
+            // --- UPDATE EXISTING ---
+            // We only touch the DOM if the position changed.
+            // This prevents jitter and allows CSS transitions to work.
+            const currentX = parseInt(el.dataset.x);
+            const currentY = parseInt(el.dataset.y);
+            const currentW = parseInt(el.dataset.cols);
+            const currentH = parseInt(el.dataset.rows);
+
+            if (currentX !== app.x || currentY !== app.y || currentW !== app.cols || currentH !== app.rows) {
+                applyGridPosition(el, app.x, app.y, app.cols, app.rows);
+            }
+
+            // Remove from map to indicate it has been processed
+            domMap.delete(app.id);
+        } else {
+            // --- CREATE NEW ---
+            el = await createAppElement(app);
+            dashboard.appendChild(el);
+        }
     }
+
+    // 4. Cleanup: Remove elements that are no longer in state
+    domMap.forEach(el => el.remove());
 }
 
 /**
@@ -45,35 +68,25 @@ async function createAppElement(app) {
         class: 'app-card',
         attrs: {
             id: `app-${app.id}`,
-            'data-id': app.id,
-            'data-x': app.x,
-            'data-y': app.y,
-            'data-cols': app.cols,
-            'data-rows': app.rows,
-            'data-name': app.name,
-        },
-        style: {
-            backgroundColor: app.data.bgColor || 'var(--bg-surface)',
-            color: app.data.textColor || 'var(--text-main)',
-            gridColumn: `${app.x} / span ${app.cols}`,
-            gridRow: `${app.y} / span ${app.rows}`
+            'data-id': app.id
         }
     });
 
-    // --- FIX: USE NEW REGISTRY LOGIC ---
-    // 1. Get the App Definition
-    const appDef = registry.get(app.subtype);
+    // Apply initial position
+    applyGridPosition(el, app.x, app.y, app.cols, app.rows);
 
+    // Style basics
+    if (app.data?.bgColor) el.style.backgroundColor = app.data.bgColor;
+    if (app.data?.textColor) el.style.color = app.data.textColor;
+
+    const appDef = registry.get(app.subtype);
     if (!appDef) {
-        console.error(`App type not found: ${app.subtype}`);
         el.innerHTML = 'Unknown App';
         return el;
     }
 
-    // 2. Instantiate and Render
     const appInstance = new appDef.Class();
     const innerHTML = await appInstance.render(app);
-    // -----------------------------------
 
     el.innerHTML = `
         ${innerHTML}
@@ -91,8 +104,20 @@ async function createAppElement(app) {
 }
 
 /**
- * Draws the background grid lines based on settings.
+ * Helper to apply CSS Grid styles to an element
  */
+export function applyGridPosition(el, x, y, w, h) {
+    el.style.gridColumn = `${x} / span ${w}`;
+    el.style.gridRow = `${y} / span ${h}`;
+    el.dataset.x = x;
+    el.dataset.y = y;
+    el.dataset.cols = w;
+    el.dataset.rows = h;
+
+    const meta = el.querySelector('.card-meta');
+    if (meta) meta.innerText = `${w}x${h}`;
+}
+
 export function renderGridLines() {
     const gridLines = qs('#gridLines');
     if (!gridLines) return;
@@ -109,145 +134,34 @@ export function renderGridLines() {
     }
 }
 
-// -----------------------------
-// LOGIC & MATH
-// -----------------------------
-
-export function applyGridPosition(el, x, y, w, h) {
-    el.style.gridColumn = `${x} / span ${w}`;
-    el.style.gridRow = `${y} / span ${h}`;
-    el.dataset.x = x;
-    el.dataset.y = y;
-    el.dataset.cols = w;
-    el.dataset.rows = h;
-
-    const meta = el.querySelector('.card-meta');
-    if (meta) meta.innerText = `${w}x${h}`;
-}
-
-export function checkCollision(targetEl, x, y, w, h) {
-    cachedApps = Array.from(qsa('.app-card')).map(app => ({
-        el: app,
-        x: parseInt(app.dataset.x) || 0,
-        y: parseInt(app.dataset.y) || 0,
-        cols: parseInt(app.dataset.cols) || 1,
-        rows: parseInt(app.dataset.rows) || 1
-    }));
-
-    const tL = x;
-    const tR = x + w;
-    const tT = y;
-    const tB = y + h;
-
-    for (const app of cachedApps) {
-        if (app.el === targetEl) continue;
-
-        if (tL < app.x + app.cols &&
-            tR > app.x &&
-            tT < app.y + app.rows &&
-            tB > app.y) {
-            return true;
-        }
-    }
-    return false;
-}
-
 /**
- * Scans the grid to find the first available slot for an item of size w x h
+ * Helper to find the first empty slot for a new widget.
+ * Uses VirtualGrid for efficient scanning.
  */
 export function findEmptySlot(w, h) {
     const cols = parseInt(state.settings.theme.gridColumns) || 10;
-    // We allow scanning beyond the visual rows to find space at the bottom
-    const maxScanRows = 100;
 
-    for (let y = 1; y <= maxScanRows; y++) {
+    // Create a temporary grid to check for space (scan deep)
+    const vGrid = new VirtualGrid(cols, 100, state.apps);
+
+    for (let y = 1; y <= 100; y++) {
         for (let x = 1; x <= cols; x++) {
-            // 1. Boundary Check (Width only)
+            // Boundary Check
             if (x + w - 1 > cols) continue;
 
-            // 2. Collision Check
-            // passing null as targetEl because the new app doesn't exist in DOM yet
-            if (!checkCollision(null, x, y, w, h)) {
+            // Collision Check
+            if (vGrid.isAreaFree(x, y, w, h)) {
                 return { x, y };
             }
         }
     }
-    // Fallback if dashboard is absolutely massive/full
     return { x: 1, y: 1 };
 }
 
 export function saveGridState() {
-    const cards = qsa('.app-card');
-    const newApps = [];
-    const currentAppsMap = new Map(state.apps.map(a => [a.id, a]));
-
-    cards.forEach(card => {
-        const id = parseInt(card.dataset.id);
-        const existing = currentAppsMap.get(id);
-
-        if (existing) {
-            newApps.push({
-                ...existing,
-                x: parseInt(card.dataset.x),
-                y: parseInt(card.dataset.y),
-                cols: parseInt(card.dataset.cols),
-                rows: parseInt(card.dataset.rows)
-            });
-        }
-    });
-
-    setState('apps', newApps);
     saveState();
 }
 
 export function sanitizeGrid() {
-    const cols = parseInt(state.settings.theme.gridColumns) || 10;
-    const rows = parseInt(state.settings.theme.gridRows) || 6;
-
-    let movedCount = 0;
-
-    const newApps = state.apps.map(app => {
-        let { x, y, cols: w, rows: h } = app;
-        let changed = false;
-
-        if (x > cols) { x = cols; changed = true; }
-        if (y > rows) { y = rows; changed = true; }
-
-        if (x + w - 1 > cols) { w = Math.max(1, cols - x + 1); changed = true; }
-        if (y + h - 1 > rows) { h = Math.max(1, rows - y + 1); changed = true; }
-
-        if (changed) {
-            movedCount++;
-            return { ...app, x, y, cols: w, rows: h };
-        }
-        return app;
-    });
-
-    if (movedCount > 0) {
-        setState('apps', newApps);
-        saveState();
-        renderGrid();
-
-        if (hasOverlaps(newApps)) {
-            showToast(`Grid resized. ${movedCount} apps moved (Overlap detected!)`, "warning");
-        } else {
-            showToast(`Grid resized. ${movedCount} apps adjusted to fit.`, "success");
-        }
-    }
-}
-
-function hasOverlaps(apps) {
-    for (let i = 0; i < apps.length; i++) {
-        const A = apps[i];
-        for (let j = i + 1; j < apps.length; j++) {
-            const B = apps[j];
-            if (A.x < B.x + B.cols &&
-                A.x + A.cols > B.x &&
-                A.y < B.y + B.rows &&
-                A.y + A.rows > B.y) {
-                return true;
-            }
-        }
-    }
-    return false;
+    // Deprecated in favor of VirtualGrid logic, but kept for compatibility
 }

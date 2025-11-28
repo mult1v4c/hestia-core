@@ -16,6 +16,38 @@ export function initSettingsPanel() {
     if (closeBtn) closeBtn.onclick = toggleSettingsPanel;
 
     const exportBtn = qs('button[title="Download current theme and layout"]');
+    if (exportBtn) {
+        exportBtn.onclick = () => {
+            const html = `
+                <p>Select your export mode:</p>
+                <div style="margin-top:15px; display:flex; flex-direction:column; gap:10px;">
+                    <label style="background:var(--bg-highlight); padding:10px; border-radius:4px; cursor:pointer; display:flex; gap:10px; align-items:center;">
+                        <input type="radio" name="export_mode" value="clean" checked>
+                        <div>
+                            <strong>Clean (Shareable)</strong>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">Removes API keys, passwords, and tokens. Safe to share.</div>
+                        </div>
+                    </label>
+                    <label style="background:var(--bg-highlight); padding:10px; border-radius:4px; cursor:pointer; display:flex; gap:10px; align-items:center;">
+                        <input type="radio" name="export_mode" value="full">
+                        <div>
+                            <strong>Full Backup</strong>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">Contains ALL data including secrets. Keep private!</div>
+                        </div>
+                    </label>
+                </div>
+            `;
+
+            showModal("Export Configuration", html, '<i class="fa-solid fa-download"></i>', () => {
+                const mode = document.querySelector('input[name="export_mode"]:checked').value;
+                const isClean = (mode === 'clean');
+                exportStateToFile(isClean);
+
+                if (isClean) showToast("Exported clean config!", "success");
+                else showToast("Exported full backup (Keep Safe!)", "warning");
+            });
+        };
+    }
     if (exportBtn) exportBtn.onclick = exportStateToFile;
 
     const importBtn = qs('button[title="Load theme and layout from a file"]');

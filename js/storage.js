@@ -5,6 +5,10 @@ const STORAGE_KEY = "HESTIA_DASHBOARD_STATE";
 const LEGACY_THEME_KEY = "hestia_theme";
 const LEGACY_APPS_KEY = "hestia_apps";
 
+const SENSITIVE_KEYS = [
+    'apiKey', 'password', 'token', 'secret', 'auth', 'key', 'userId', 'url'
+];
+
 export function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -86,19 +90,41 @@ export function resetState() {
   window.location.reload();
 }
 
-export function exportStateToFile() {
+export function exportStateToFile(sanitize = false) {
+  // Deep clone to avoid modifying the live state
+  const appsClone = JSON.parse(JSON.stringify(state.apps));
+
+  if (sanitize) {
+      console.info("[Storage] Sanitizing export data...");
+      appsClone.forEach(app => {
+          if (app.data) {
+              SENSITIVE_KEYS.forEach(key => {
+                  if (app.data[key]) {
+                      app.data[key] = ""; // Clear the value
+                  }
+              });
+          }
+      });
+  }
+
   const exportData = {
-    apps: state.apps,
+    apps: appsClone,
     settings: state.settings,
     timestamp: Date.now(),
-    version: "2.0"
+    version: "2.0",
+    mode: sanitize ? "clean" : "full"
   };
+
+  const filename = sanitize
+      ? `hestia_config_CLEAN_${new Date().toISOString().slice(0,10)}.json`
+      : `hestia_config_FULL_${new Date().toISOString().slice(0,10)}.json`;
+
   const json = JSON.stringify(exportData, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `hestia_config_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

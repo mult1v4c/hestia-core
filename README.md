@@ -106,9 +106,9 @@ To make the integrations work smoothly, Hestia's `default.conf` sets up internal
 You can export your entire theme and grid layout to a JSON file via the **Settings Panel** (Gear Icon). This is great for backing up your setup or sharing themes with friends\!
 
 > [!Warning]
-> **CLEAN YOUR JSON FILES BEFORE SHARING!**
+> **CHECK YOUR JSON FILES BEFORE SHARING!**
 > The export function will export ALL of the dashboard settings, including themes, color palettes, and app data and settings. **Which means API keys, IP addresses, and passwords included**.
-> This is currently being worked on to avoid leaking sensitive information.
+> I've included safeguards to clean keys, user IDs, and other sensitive information. But still check to make sure!
 
 
 -----

@@ -72,7 +72,7 @@ export class MatrixApp extends BaseApp {
 }
 
 registry.register('matrix', MatrixApp, {
-    label: 'Matrix Rain',
+    label: 'Matrix',
     category: 'static',
     defaultSize: { cols: 1, rows: 1 },
     settings: [

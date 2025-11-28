@@ -17,7 +17,7 @@ export class PipesApp extends BaseApp {
         const speed = parseInt(app.data.speed) || 50;
         const pipeCount = parseInt(app.data.pipeCount) || 3;
         const turnChance = 0.1;
-        const showOutlines = app.data.outlines !== 'false';
+        // REMOVED: const showOutlines = ...
 
         // State
         let pipes = [];
@@ -62,7 +62,7 @@ export class PipesApp extends BaseApp {
         const step = () => {
             // Fade Effect (The background clear)
             const bgHex = resolveToHex('var(--bg-canvas)');
-            ctx.fillStyle = bgHex + '10'; // '10' = Hex Transparency
+            ctx.fillStyle = bgHex + '20'; // '10' = Hex Transparency
             ctx.fillRect(0, 0, w, h);
 
             pipes.forEach((p, index) => {
@@ -106,26 +106,17 @@ export class PipesApp extends BaseApp {
                 const pipeColorHex = resolveToHex(p.color);
                 const pipeWidth = gridSize / 2;
 
-                // 1. DRAW OUTLINE
-                if (showOutlines) {
-                    ctx.beginPath();
-                    ctx.strokeStyle = bgHex;
-                    ctx.lineWidth = pipeWidth + 6;
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(endX, endY);
-                    ctx.stroke();
-                }
+                // REMOVED: Outline drawing logic
 
-                // 2. PATCH THE JOINT (The Fix!)
+                // 1. PATCH THE JOINT (The Fix!)
                 // We draw a solid circle at the starting point.
-                // This covers up the "cut" that the outline made into the previous segment.
                 ctx.beginPath();
                 ctx.fillStyle = pipeColorHex;
                 // Radius is half of lineWidth (which is gridSize/2), so gridSize/4
                 ctx.arc(startX, startY, pipeWidth / 2, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 3. DRAW PIPE BODY
+                // 2. DRAW PIPE BODY
                 ctx.beginPath();
                 ctx.strokeStyle = pipeColorHex;
                 ctx.lineWidth = pipeWidth;
@@ -161,17 +152,8 @@ registry.register('pipes', PipesApp, {
     settings: [
         { name: 'pipeCount', label: 'Number of Pipes', type: 'text', defaultValue: '3' },
         { name: 'gridSize', label: 'Thickness (px)', type: 'text', defaultValue: '20' },
-        { name: 'speed', label: 'Speed (ms)', type: 'text', defaultValue: '50' },
-        {
-            name: 'outlines',
-            label: 'Show Outlines',
-            type: 'select',
-            defaultValue: 'true',
-            options: [
-                { label: 'On', value: 'true' },
-                { label: 'Off', value: 'false' }
-            ]
-        }
+        { name: 'speed', label: 'Speed (ms)', type: 'text', defaultValue: '50' }
+        // REMOVED: Outlines setting
     ],
     css: `
         .pipes-canvas {

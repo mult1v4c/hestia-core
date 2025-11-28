@@ -1,3 +1,4 @@
+// js/apps/jellyfinApp.js
 import { BaseApp } from "./baseApp.js";
 import { registry } from "../registry.js";
 import { initJellyfin } from "./jellyfin/jLogic.js";
@@ -79,11 +80,11 @@ registry.register('jellyfin', JellyfinApp, {
         .jellyfin-header {
             position: absolute; top: 0; left: 0; width: 100%;
             padding: 8px 10px; z-index: 10;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            // background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
             pointer-events: none;
             display: flex; justify-content: space-between; align-items: center;
         }
-        .jf-header-title { font-weight: bold; font-size: 0.8rem; letter-spacing: 1px; text-shadow: 0 1px 2px black; }
+        .jf-header-title { font-weight: bold; font-size: 0.8rem; letter-spacing: 1px; }
 
         /* Status Indicators */
         .jf-status-wrapper {
@@ -155,7 +156,10 @@ registry.register('jellyfin', JellyfinApp, {
         }
 
         .jf-list {
-            flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+            flex: 1;
+            min-height: 0; /* Important for nested flex scrolling */
+            overflow-y: auto;
+            display: flex; flex-direction: column; gap: 2px;
             padding: 0 5px 5px 5px;
         }
         .jf-list::-webkit-scrollbar { width: 4px; }
@@ -167,6 +171,7 @@ registry.register('jellyfin', JellyfinApp, {
             overflow: hidden;
             transition: transform 0.2s;
             border: 1px solid rgba(255,255,255,0.05);
+            flex-shrink: 0; /* CRITICAL FIX: Prevents items from squishing */
         }
         .jf-list-item:hover { transform: scale(1.01); z-index: 2; border-color: rgba(255,255,255,0.2); }
 

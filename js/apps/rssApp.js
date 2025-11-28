@@ -196,7 +196,7 @@ registry.register('rss', RssApp, {
     settings: [
         {
             name: 'url',
-            label: 'Feed URLs (Comma Separated)',
+            label: 'Feed URLs',
             type: 'textarea',
             placeholder: 'https://site1.com/rss\nhttps://site2.com/feed'
         },

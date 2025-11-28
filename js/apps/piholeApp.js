@@ -51,7 +51,7 @@ registry.register('pihole', PiholeApp, {
     category: 'data',
     defaultSize: { cols: 2, rows: 1 }, // Default is now wider (Horizontal boxes)
     settings: [
-        { name: 'url', label: 'API URL (Use /pi-api/...)', type: 'text', defaultValue: '/pi-api/admin/api.php' },
+        { name: 'url', label: 'API URL (Use /pi-api/...)', type: 'text', defaultValue: '/pi-api/api' },
         { name: 'token', label: 'API Token / Password', type: 'text', placeholder: 'Web Interface Password' },
         { name: 'interval', label: 'Interval (ms)', type: 'text', defaultValue: '5000' }
     ],

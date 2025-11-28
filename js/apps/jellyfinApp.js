@@ -63,9 +63,9 @@ registry.register('jellyfin', JellyfinApp, {
     category: 'data',
     defaultSize: { cols: 2, rows: 2 },
     settings: [
-        { name: 'url', label: 'Server URL', type: 'text', placeholder: 'http://192.168.1.x:8096' },
+        { name: 'url', label: 'Server URL', type: 'text', placeholder: 'http://localhost:8096' },
         { name: 'apiKey', label: 'API Key', type: 'text', placeholder: 'Dashboard > API Keys' },
-        { name: 'userId', label: 'User ID / Name', type: 'text', placeholder: 'For "Latest Added"' },
+        { name: 'userId', label: 'User ID / Name', type: 'text', placeholder: 'admin' },
         { name: 'interval', label: 'Interval (ms)', type: 'text', defaultValue: '5000' }
     ],
     css: `

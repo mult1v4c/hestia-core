@@ -49,7 +49,7 @@ export class ClockApp extends BaseApp {
 registry.register('clock', ClockApp, {
     label: 'Clock',
     category: 'static',
-    defaultSize: { cols: 2, rows: 1 },
+    defaultSize: { cols: 1, rows: 1 },
     settings: [
         {
             name: 'format',

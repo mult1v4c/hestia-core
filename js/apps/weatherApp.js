@@ -47,7 +47,7 @@ export class WeatherApp extends BaseApp {
 registry.register('weather', WeatherApp, {
     label: 'Weather',
     category: 'static',
-    defaultSize: { cols: 2, rows: 1 },
+    defaultSize: { cols: 1, rows: 1 },
     settings: [
         { name: 'lat', label: 'Latitude', type: 'text', placeholder: 'e.g. 51.50' },
         { name: 'lon', label: 'Longitude', type: 'text', placeholder: 'e.g. -0.12' }

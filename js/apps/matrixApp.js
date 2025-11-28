@@ -74,7 +74,7 @@ export class MatrixApp extends BaseApp {
 registry.register('matrix', MatrixApp, {
     label: 'Matrix Rain',
     category: 'static',
-    defaultSize: { cols: 2, rows: 2 },
+    defaultSize: { cols: 1, rows: 1 },
     settings: [
         { name: 'color', label: 'Matrix Color', type: 'color', defaultValue: '#00FF00' },
         { name: 'speed', label: 'Speed (Lower is Faster)', type: 'text', defaultValue: '50' }

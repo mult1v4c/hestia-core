@@ -67,7 +67,7 @@ export class GlancesApp extends BaseApp {
 registry.register('glances', GlancesApp, {
     label: 'Glances Monitor',
     category: 'data',
-    defaultSize: { cols: 2, rows: 2 },
+    defaultSize: { cols: 1, rows: 1 },
     settings: [
         { name: 'url', label: 'Glances URL', type: 'text', defaultValue: 'http://localhost:61208' },
         {

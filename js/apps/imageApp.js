@@ -38,7 +38,7 @@ export class ImageApp extends BaseApp {
 registry.register('image', ImageApp, {
     label: 'Image Frame',
     category: 'static',
-    defaultSize: { cols: 2, rows: 2 },
+    defaultSize: { cols: 1, rows: 1 },
     settings: [
         // We use a special custom type 'image-source' here now
         { name: 'src', label: 'Image Source', type: 'image-source' },

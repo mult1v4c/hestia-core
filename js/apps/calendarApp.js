@@ -42,7 +42,7 @@ export class CalendarApp extends BaseApp {
 registry.register('calendar', CalendarApp, {
     label: 'Calendar',
     category: 'static',
-    defaultSize: { cols: 2, rows: 2 },
+    defaultSize: { cols: 1, rows: 1 },
     settings: [],
     css: `
         .app-type-calendar {

@@ -232,7 +232,7 @@ export class FetchApp extends BaseApp {
 registry.register('fetch', FetchApp, {
     label: 'System Fetch',
     category: 'data',
-    defaultSize: { cols: 3, rows: 2 },
+    defaultSize: { cols: 2, rows: 1 },
     settings: [
         {
             name: 'mode',

@@ -21,7 +21,7 @@ export class NoteApp extends BaseApp {
 
 registry.register('note', NoteApp, {
     label: 'Sticky Note',
-    defaultSize: { cols: 2, rows: 2 },
+    defaultSize: { cols: 1, rows: 1 },
     settings: [
         { name: 'title', label: 'Title', type: 'text', placeholder: 'My Note' },
         { name: 'bgColor', label: 'Background Color', type: 'color', defaultValue: 'var(--bg-surface)' }

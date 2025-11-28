@@ -143,7 +143,7 @@ export class PipesApp extends BaseApp {
 registry.register('pipes', PipesApp, {
     label: 'Pipes Screensaver',
     category: 'static',
-    defaultSize: { cols: 2, rows: 2 },
+    defaultSize: { cols: 1, rows: 1 },
     settings: [
         { name: 'pipeCount', label: 'Number of Pipes', type: 'text', defaultValue: '3' },
         { name: 'gridSize', label: 'Thickness (px)', type: 'text', defaultValue: '20' },

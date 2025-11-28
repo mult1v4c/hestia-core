@@ -28,9 +28,8 @@ export class MatrixApp extends BaseApp {
             canvas.width = rect.width;
             canvas.height = rect.height;
 
-            cols = Math.floor(canvas.width / fontSize);
+            cols = Math.ceil(canvas.width / fontSize);
 
-            // Initialize drops if needed, or expand array if resizing wider
             if (drops.length < cols) {
                 for (let i = drops.length; i < cols; i++) {
                     drops[i] = Math.random() * -100; // Stagger starts
@@ -82,10 +81,8 @@ registry.register('matrix', MatrixApp, {
     ],
     css: `
         .matrix-canvas {
-            /* FIX: Position Absolute Strategy */
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-
             display: block;
             background-color: #000;
             z-index: 0; /* Ensure it stays behind controls */

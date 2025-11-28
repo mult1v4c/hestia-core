@@ -1,4 +1,3 @@
-// js/apps/pipesApp.js
 import { BaseApp } from "./baseApp.js";
 import { registry } from "../registry.js";
 import { resolveToHex } from "../utils.js";
@@ -17,7 +16,6 @@ export class PipesApp extends BaseApp {
         const speed = parseInt(app.data.speed) || 50;
         const pipeCount = parseInt(app.data.pipeCount) || 3;
         const turnChance = 0.1;
-        // REMOVED: const showOutlines = ...
 
         // State
         let pipes = [];
@@ -37,8 +35,9 @@ export class PipesApp extends BaseApp {
             canvas.height = rect.height;
             w = rect.width;
             h = rect.height;
-            cols = Math.floor(w / gridSize);
-            rows = Math.floor(h / gridSize);
+
+            cols = Math.ceil(w / gridSize);
+            rows = Math.ceil(h / gridSize);
 
             // Clear screen
             ctx.fillStyle = resolveToHex('var(--bg-canvas)');
@@ -60,9 +59,9 @@ export class PipesApp extends BaseApp {
         };
 
         const step = () => {
-            // Fade Effect (The background clear)
+            // Fade Effect
             const bgHex = resolveToHex('var(--bg-canvas)');
-            ctx.fillStyle = bgHex + '20'; // '10' = Hex Transparency
+            ctx.fillStyle = bgHex + '10'; // '10' = Hex Transparency
             ctx.fillRect(0, 0, w, h);
 
             pipes.forEach((p, index) => {
@@ -106,13 +105,9 @@ export class PipesApp extends BaseApp {
                 const pipeColorHex = resolveToHex(p.color);
                 const pipeWidth = gridSize / 2;
 
-                // REMOVED: Outline drawing logic
-
-                // 1. PATCH THE JOINT (The Fix!)
-                // We draw a solid circle at the starting point.
+                // 1. PATCH THE JOINT
                 ctx.beginPath();
                 ctx.fillStyle = pipeColorHex;
-                // Radius is half of lineWidth (which is gridSize/2), so gridSize/4
                 ctx.arc(startX, startY, pipeWidth / 2, 0, Math.PI * 2);
                 ctx.fill();
 
@@ -153,7 +148,6 @@ registry.register('pipes', PipesApp, {
         { name: 'pipeCount', label: 'Number of Pipes', type: 'text', defaultValue: '3' },
         { name: 'gridSize', label: 'Thickness (px)', type: 'text', defaultValue: '20' },
         { name: 'speed', label: 'Speed (ms)', type: 'text', defaultValue: '50' }
-        // REMOVED: Outlines setting
     ],
     css: `
         .pipes-canvas {

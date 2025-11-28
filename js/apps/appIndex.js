@@ -10,3 +10,5 @@ import './piholeApp.js';
 import './delugeApp.js';
 import './jellyfinApp.js';
 import './rssApp.js';
+import './matrixApp.js';
+//import './pipesApp.js';

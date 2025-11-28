@@ -8,8 +8,12 @@ export class DelugeApp extends BaseApp {
             <div class="app-content app-type-deluge">
                 <div class="deluge-header">
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/23/Deluge_icon.svg" style="width:16px;">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/8/85/Deluge-Logo.svg" style="width:16px;">
                         <span class="d-title">DELUGE</span>
+                    </div>
+                    <div class="d-status-wrapper">
+                        <div class="d-status-dot"></div>
+                        <span class="d-status-text">--</span>
                     </div>
                 </div>
                 <div class="deluge-body"></div>
@@ -17,7 +21,6 @@ export class DelugeApp extends BaseApp {
     }
 
     onMount(el, app) {
-        // Default to a proxied URL to avoid CORS
         const rawUrl = app.data.url || '/deluge-api/json';
         const password = app.data.password || '';
         const intervalTime = parseInt(app.data.interval) || 5000;
@@ -25,12 +28,21 @@ export class DelugeApp extends BaseApp {
         const config = { url: rawUrl, password };
         const updateLogic = initDeluge(el, config);
 
+        const statusDot = el.querySelector('.d-status-dot');
+        const statusText = el.querySelector('.d-status-text');
+
         const runUpdate = async () => {
             if (!el.isConnected) return;
             try {
                 if (updateLogic) await updateLogic();
+                // Success State
+                if (statusDot) statusDot.className = 'd-status-dot active';
+                if (statusText) statusText.innerText = 'ONLINE';
             } catch (err) {
                 console.error("[Deluge] Error:", err);
+                // Error State
+                if (statusDot) statusDot.className = 'd-status-dot disabled';
+                if (statusText) statusText.innerText = 'ERR';
             }
         };
 
@@ -62,6 +74,13 @@ registry.register('deluge', DelugeApp, {
             padding-bottom: 6px; margin-bottom: 4px; flex-shrink: 0;
         }
         .d-title { font-weight: bold; font-size: 0.8rem; letter-spacing: 1px; }
+
+        /* Status Styles */
+        .d-status-wrapper { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; }
+        .d-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); transition: all 0.3s; }
+        .d-status-dot.active { background: var(--status-success); box-shadow: 0 0 8px var(--status-success); }
+        .d-status-dot.disabled { background: var(--status-error); }
+        .d-status-text { font-weight: bold; color: var(--text-muted); }
 
         .deluge-body { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 
@@ -95,14 +114,13 @@ registry.register('deluge', DelugeApp, {
         }
 
         .d-list {
-            flex: 1; min-height: 0; /* Critical for scrolling inside flex */
+            flex: 1; min-height: 0;
             overflow-y: auto;
             display: flex; flex-direction: column; gap: 6px;
-            padding-right: 2px; /* Avoid scrollbar overlap */
+            padding-right: 2px;
         }
         .d-list::-webkit-scrollbar { width: 4px; }
 
-        /* List Items */
         .d-item {
             background: rgba(0,0,0,0.1); border-radius: 4px; padding: 5px;
             border: 1px solid transparent;

@@ -42,6 +42,6 @@ export function initSummary(el, config) {
         el.querySelector('#val-percent').innerText = percent + '%';
 
         statusDot.className = 'ph-status-dot active';
-        statusText.innerText = 'ACTIVE';
+        statusText.innerText = 'ONLINE';
     };
 }

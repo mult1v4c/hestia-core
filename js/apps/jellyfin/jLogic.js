@@ -4,7 +4,7 @@ export function initJellyfin(el, config) {
     const { url, apiKey, userId } = config;
     const bodyEl = el.querySelector('.jellyfin-body');
 
-    // 1. Setup DOM (Two Views: Player & Shelf)
+    // 1. Setup DOM
     bodyEl.innerHTML = `
         <div class="jf-player" style="display:none;">
             <div class="jf-backdrop"></div>
@@ -93,7 +93,6 @@ function renderPlayer(el, baseUrl, session) {
     // 2. Text Info
     el.querySelector('.jf-user').innerText = session.UserName;
     el.querySelector('.jf-title').innerText = item.Name;
-
     el.querySelector('.jf-year').innerText = item.ProductionYear || '';
 
     const rating = item.OfficialRating || '';
@@ -135,25 +134,26 @@ async function renderShelf(el, baseUrl, apiKey, userId) {
         Fields: "ProductionYear,OfficialRating,Genres"
     }, apiKey);
 
-    // FIX: Robustness Check (Array vs Object wrapper)
     let latest = [];
-    if (Array.isArray(response)) {
-        latest = response;
-    } else if (response && response.Items) {
-        latest = response.Items;
-    }
+    if (Array.isArray(response)) latest = response;
+    else if (response && response.Items) latest = response.Items;
 
     const listEl = el.querySelector('#jf-list');
-    listEl.innerHTML = ''; // Always clear to prevent "Loading" stuck state
+    listEl.innerHTML = '';
 
     latest.forEach(item => {
         const imgUrl = getJellyfinImage(baseUrl, item.Id, "Primary");
+        // Optimization: Request smaller backdrop for list background (saves bandwidth)
+        const backdropUrl = getJellyfinImage(baseUrl, item.Id, "Backdrop") + "&maxWidth=400";
+
         const year = item.ProductionYear || '';
         const rating = item.OfficialRating || '';
         const genres = (item.Genres || []).slice(0, 2).join(', ');
 
         const card = document.createElement('div');
         card.className = 'jf-list-item';
+        // Set background image as CSS var for the pseudo-element to use
+        card.style.setProperty('--bg-url', `url('${backdropUrl}')`);
 
         card.innerHTML = `
             <div class="jf-poster-thumb" style="background-image: url('${imgUrl}')"></div>

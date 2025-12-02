@@ -90,7 +90,7 @@ if [ "${ENABLE_DELUGE_PROXY:-true}" != "false" ]; then
     deluge_target="${DELUGE_PROXY_TARGET:-http://deluge:8112/}"
     deluge_host_header="${DELUGE_HOST_HEADER:-}"
     if [ -z "${deluge_host_header}" ]; then
-        deluge_host_header='$host'
+        deluge_host_header='\$host'
     fi
 
     append_proxy_block "
@@ -110,7 +110,7 @@ if [ "${ENABLE_JELLYFIN_PROXY:-true}" != "false" ]; then
     jellyfin_target="${JELLYFIN_PROXY_TARGET:-http://jellyfin:8096/}"
     jellyfin_host_header="${JELLYFIN_HOST_HEADER:-}"
     if [ -z "${jellyfin_host_header}" ]; then
-        jellyfin_host_header='$host'
+        jellyfin_host_header='\$host'
     fi
 
     append_proxy_block "

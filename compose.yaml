@@ -16,11 +16,11 @@ services:
       ENABLE_DELUGE_PROXY: ${ENABLE_DELUGE_PROXY:-true}
       DELUGE_PROXY_PATH: ${DELUGE_PROXY_PATH:-/deluge-api/}
       DELUGE_PROXY_TARGET: ${DELUGE_PROXY_TARGET:-http://deluge:8112/}
-      DELUGE_HOST_HEADER: ${DELUGE_HOST_HEADER:-$$host}
+      DELUGE_HOST_HEADER: ${DELUGE_HOST_HEADER:-}
       ENABLE_JELLYFIN_PROXY: ${ENABLE_JELLYFIN_PROXY:-true}
       JELLYFIN_PROXY_PATH: ${JELLYFIN_PROXY_PATH:-/jellyfin-api/}
       JELLYFIN_PROXY_TARGET: ${JELLYFIN_PROXY_TARGET:-http://jellyfin:8096/}
-      JELLYFIN_HOST_HEADER: ${JELLYFIN_HOST_HEADER:-$$host}
+      JELLYFIN_HOST_HEADER: ${JELLYFIN_HOST_HEADER:-}
     volumes:
       - ./config/nginx:/etc/nginx/server.d:ro
     restart: unless-stopped

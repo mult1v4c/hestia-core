@@ -88,7 +88,10 @@ if [ "${ENABLE_DELUGE_PROXY:-true}" != "false" ]; then
     deluge_path=$(path_with_slash "${DELUGE_PROXY_PATH:-/deluge-api/}")
     deluge_regex=$(path_no_slash "${DELUGE_PROXY_PATH:-/deluge-api/}")
     deluge_target="${DELUGE_PROXY_TARGET:-http://deluge:8112/}"
-    deluge_host_header="${DELUGE_HOST_HEADER:-\\$host}"
+    deluge_host_header="${DELUGE_HOST_HEADER:-}"
+    if [ -z "${deluge_host_header}" ]; then
+        deluge_host_header='$host'
+    fi
 
     append_proxy_block "
     location ${deluge_path} {
@@ -105,7 +108,10 @@ fi
 if [ "${ENABLE_JELLYFIN_PROXY:-true}" != "false" ]; then
     jellyfin_path=$(path_with_slash "${JELLYFIN_PROXY_PATH:-/jellyfin-api/}")
     jellyfin_target="${JELLYFIN_PROXY_TARGET:-http://jellyfin:8096/}"
-    jellyfin_host_header="${JELLYFIN_HOST_HEADER:-\\$host}"
+    jellyfin_host_header="${JELLYFIN_HOST_HEADER:-}"
+    if [ -z "${jellyfin_host_header}" ]; then
+        jellyfin_host_header='$host'
+    fi
 
     append_proxy_block "
     location ${jellyfin_path} {

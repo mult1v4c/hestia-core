@@ -127,6 +127,8 @@ All of the proxy blocks are generated from environment variables at container st
 | `DELUGE_PROXY_TARGET` | RPC endpoint for Deluge (default `http://deluge:8112/`). |
 | `JELLYFIN_PROXY_TARGET` | Base URL for Jellyfin (default `http://jellyfin:8096/`). |
 
+> Leave `DELUGE_HOST_HEADER` and `JELLYFIN_HOST_HEADER` blank unless you need to override them—the entrypoint falls back to Nginx's `$host` variable automatically.
+
 You can also change the exposed paths (`*_PROXY_PATH`) or disable any integration with `ENABLE_*_PROXY=false`. For additional services, drop custom `.conf` snippets into `config/nginx/`—they are loaded automatically on container start.
 
 ---

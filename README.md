@@ -125,7 +125,7 @@ All of the proxy blocks are generated from environment variables at container st
 | Variable | Purpose |
 | --- | --- |
 | `ENABLE_PIHOLE_PROXY` | Toggle the Pi-hole proxy block without editing Nginx (default `false`). |
-| `PIHOLE_PROXY_TARGET` | Upstream URL for your Pi-hole instance (e.g., `https://10.0.0.2`). |
+| `PIHOLE_PROXY_TARGET` | Upstream URL for your Pi-hole instance (required when `ENABLE_PIHOLE_PROXY=true`). |
 | `ENABLE_DELUGE_PROXY` | Toggle the Deluge proxy block (default `false`). |
 | `DELUGE_PROXY_TARGET` | RPC endpoint for Deluge (default `http://deluge:8112/`). |
 | `ENABLE_JELLYFIN_PROXY` | Toggle the Jellyfin proxy block (default `false`). |

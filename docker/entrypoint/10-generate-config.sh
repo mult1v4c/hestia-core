@@ -61,32 +61,6 @@ ${block}
 EOF
 }
 
-if [ "${ENABLE_PIHOLE_PROXY:-true}" != "false" ]; then
-    pihole_path=$(path_with_slash "${PIHOLE_PROXY_PATH:-/pi-api/}")
-    pihole_regex=$(path_no_slash "${PIHOLE_PROXY_PATH:-/pi-api/}")
-    pihole_target="${PIHOLE_PROXY_TARGET:-https://pihole}"
-    pihole_host_header="${PIHOLE_HOST_HEADER:-pi.hole}"
-    if [ -z "${pihole_host_header}" ]; then
-        pihole_host_header='\$host'
-    fi
-    pihole_ssl_verify="${PIHOLE_SSL_VERIFY:-off}"
-
-    append_proxy_block "
-    location ${pihole_path} {
-        rewrite ^${pihole_regex}/(.*) /\$1 break;
-
-        proxy_pass ${pihole_target};
-
-        proxy_ssl_verify ${pihole_ssl_verify};
-        proxy_ssl_server_name on;
-        proxy_set_header Host ${pihole_host_header};
-
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-"
-fi
-
 if [ "${ENABLE_DELUGE_PROXY:-true}" != "false" ]; then
     deluge_path=$(path_with_slash "${DELUGE_PROXY_PATH:-/deluge-api/}")
     deluge_regex=$(path_no_slash "${DELUGE_PROXY_PATH:-/deluge-api/}")
@@ -106,6 +80,36 @@ if [ "${ENABLE_DELUGE_PROXY:-true}" != "false" ]; then
         proxy_cookie_path / ${deluge_path};
     }
 "
+fi
+
+if [ "${ENABLE_PIHOLE_PROXY:-true}" != "false" ]; then
+    pihole_path=$(path_with_slash "${PIHOLE_PROXY_PATH:-/pi-api/}")
+    pihole_regex=$(path_no_slash "${PIHOLE_PROXY_PATH:-/pi-api/}")
+    pihole_target="${PIHOLE_PROXY_TARGET:-}"
+    pihole_host_header="${PIHOLE_HOST_HEADER:-pi.hole}"
+    pihole_ssl_verify="${PIHOLE_SSL_VERIFY:-off}"
+    if [ -z "${pihole_host_header}" ]; then
+        pihole_host_header='\$host'
+    fi
+
+    if [ -z "${pihole_target}" ]; then
+        echo "[entrypoint] Pi-hole proxy enabled but PIHOLE_PROXY_TARGET is empty; skipping block."
+    else
+        append_proxy_block "
+    location ${pihole_path} {
+        rewrite ^${pihole_regex}/(.*) /\$1 break;
+
+        proxy_pass ${pihole_target};
+
+        proxy_ssl_verify ${pihole_ssl_verify};
+        proxy_ssl_server_name on;
+        proxy_set_header Host ${pihole_host_header};
+
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+"
+    fi
 fi
 
 if [ "${ENABLE_JELLYFIN_PROXY:-true}" != "false" ]; then

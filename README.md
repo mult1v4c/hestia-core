@@ -54,9 +54,9 @@ Hestia comes with a suite of built-in apps. You can add as many as you like\!
 
 ## 🚀 Getting Started
 
-### Option 1: Docker (Recommended)
+### Option 1: Docker Compose (Recommended)
 
-This is the best way to run Hestia if you plan to use the **API integrations** (Glances, Pi-hole, etc.), as the included Nginx config handles CORS permissions for you.
+This is the fastest way to get Hestia (and its homelab proxies) online. The Compose file wires up Nginx, health checks, and optional proxy snippets for you.
 
 1.  Clone the repository:
 
@@ -65,16 +65,37 @@ This is the best way to run Hestia if you plan to use the **API integrations** (
     cd hestia-core
     ```
 
-2.  Build and Run:
+2.  Copy the default environment file and tweak anything you need (host port, proxy targets, etc.):
 
     ```bash
-    docker build -t hestia-core .
-    docker run -d -p 8080:80 --name hestia hestia-core
+    cp compose.env.example .env
+    # edit .env to point at your Pi-hole / Deluge / Jellyfin hosts
     ```
 
-3.  Visit `http://localhost:8080`\!
+3.  (Optional) Drop any extra Nginx snippets into `config/nginx/` if you need to proxy additional apps.
 
-### Option 2: Static / Manual
+4.  Build and start the stack:
+
+    ```bash
+    docker compose up -d
+    ```
+
+    > Need Hestia to reach services defined in another Compose project? Add its network name under `services.hestia.networks` in `compose.yaml`, or connect the container later with `docker network connect`.
+
+5.  Visit `http://localhost:8080` (or whatever `HOST_PORT` you set).
+
+### Option 2: Docker CLI
+
+Prefer raw `docker build`/`docker run`? The classic workflow still works and now ships with the same dynamic config generator used by Compose.
+
+```bash
+docker build -t hestia-core .
+docker run -d -p 8080:80 --name hestia --env-file .env hestia-core
+```
+
+Set any of the variables shown in `compose.env.example` (e.g., `PIHOLE_PROXY_TARGET`) to customize the generated Nginx config before starting the container.
+
+### Option 3: Static / Manual
 
 Since Hestia is vanilla JavaScript, you can run it on any web server.
 
@@ -91,13 +112,22 @@ python3 -m http.server 8000
 
 ### Using the Proxy (Docker Only)
 
-To make the integrations work smoothly, Hestia's `default.conf` sets up internal proxies. When configuring apps in the dashboard, use these relative paths:
+Hestia's container publishes a small reverse proxy for the integrations, so the UI can talk to your homelab services without CORS issues. When configuring apps inside the dashboard, point them at these relative paths:
 
   * **Pi-hole URL:** `/pi-api/admin/api.php` (instead of `http://192.168.x.x/...`)
   * **Deluge URL:** `/deluge-api/json`
   * **Jellyfin URL:** `/jellyfin-api/`
 
-*Note: You will need to update `default.conf` to point to your actual server IPs before building the Docker image\!*
+All of the proxy blocks are generated from environment variables at container start-up. The most common knobs live in `.env`:
+
+| Variable | Purpose |
+| --- | --- |
+| `ENABLE_PIHOLE_PROXY` | Toggle the Pi-hole proxy block without editing Nginx. |
+| `PIHOLE_PROXY_TARGET` | Upstream URL for your Pi-hole instance (e.g., `https://10.0.0.2`). |
+| `DELUGE_PROXY_TARGET` | RPC endpoint for Deluge (default `http://deluge:8112/`). |
+| `JELLYFIN_PROXY_TARGET` | Base URL for Jellyfin (default `http://jellyfin:8096/`). |
+
+You can also change the exposed paths (`*_PROXY_PATH`) or disable any integration with `ENABLE_*_PROXY=false`. For additional services, drop custom `.conf` snippets into `config/nginx/`—they are loaded automatically on container start.
 
 ---
 

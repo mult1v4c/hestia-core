@@ -79,7 +79,8 @@ This is the fastest way to get Hestia (and its homelab proxies) online. The Comp
 4.  Build and start the stack:
 
     ```bash
-    docker compose up -d
+    docker compose up -d --build
+    # Use --build only the first time or when updating
     ```
 
     > Need Hestia to reach services defined in another Compose project? Add its network name under `services.hestia.networks` in `compose.yaml`, or connect the container later with `docker network connect`.

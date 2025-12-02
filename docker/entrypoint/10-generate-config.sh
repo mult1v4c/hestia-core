@@ -66,6 +66,9 @@ if [ "${ENABLE_PIHOLE_PROXY:-true}" != "false" ]; then
     pihole_regex=$(path_no_slash "${PIHOLE_PROXY_PATH:-/pi-api/}")
     pihole_target="${PIHOLE_PROXY_TARGET:-https://pihole}"
     pihole_host_header="${PIHOLE_HOST_HEADER:-pi.hole}"
+    if [ -z "${pihole_host_header}" ]; then
+        pihole_host_header='\$host'
+    fi
     pihole_ssl_verify="${PIHOLE_SSL_VERIFY:-off}"
 
     append_proxy_block "

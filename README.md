@@ -72,6 +72,8 @@ This is the fastest way to get Hestia (and its homelab proxies) online. The Comp
     # edit .env to point at your Pi-hole / Deluge / Jellyfin hosts
     ```
 
+    > The upstream proxy blocks are **disabled by default** so the dashboard can boot without external services. Flip `ENABLE_*_PROXY` to `true` and set the `*_TARGET` values when you're ready to wire them up.
+
 3.  (Optional) Drop any extra Nginx snippets into `config/nginx/` if you need to proxy additional apps.
 
 4.  Build and start the stack:
@@ -122,9 +124,11 @@ All of the proxy blocks are generated from environment variables at container st
 
 | Variable | Purpose |
 | --- | --- |
-| `ENABLE_PIHOLE_PROXY` | Toggle the Pi-hole proxy block without editing Nginx. |
+| `ENABLE_PIHOLE_PROXY` | Toggle the Pi-hole proxy block without editing Nginx (default `false`). |
 | `PIHOLE_PROXY_TARGET` | Upstream URL for your Pi-hole instance (e.g., `https://10.0.0.2`). |
+| `ENABLE_DELUGE_PROXY` | Toggle the Deluge proxy block (default `false`). |
 | `DELUGE_PROXY_TARGET` | RPC endpoint for Deluge (default `http://deluge:8112/`). |
+| `ENABLE_JELLYFIN_PROXY` | Toggle the Jellyfin proxy block (default `false`). |
 | `JELLYFIN_PROXY_TARGET` | Base URL for Jellyfin (default `http://jellyfin:8096/`). |
 
 > Leave `PIHOLE_HOST_HEADER`, `DELUGE_HOST_HEADER`, and `JELLYFIN_HOST_HEADER` blank unless you need to override them—the entrypoint falls back to Nginx's `$host` variable automatically.

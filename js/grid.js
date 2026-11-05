@@ -4,6 +4,7 @@ import { saveState } from "./storage.js";
 import { createEl, qs, qsa } from "./dom.js";
 import { registry } from "./registry.js";
 import { VirtualGrid } from "./grid/virtualGrid.js";
+import { showServiceError } from './apps/baseApp.js';
 
 // -----------------------------
 // GRID RENDERING (View Transitions API)
@@ -84,7 +85,7 @@ export async function renderGrid(dragInfo = null) {
         }
 
         // Cleanup removed apps
-        domMap.forEach(el => el.remove());
+        domMap.forEach(el => { el.appInstance?.dispose(); el.remove(); });
     };
 
     // --- THE ANIMATION TRIGGER ---
@@ -104,12 +105,13 @@ export async function renderGrid(dragInfo = null) {
 
         const transition = document.startViewTransition(() => updateDOM());
 
+        await transition.updateCallbackDone;
         transition.finished.finally(() => {
             if (styleTag) styleTag.remove();
         });
 
     } else {
-        updateDOM();
+        await updateDOM();
     }
 }
 
@@ -139,11 +141,15 @@ async function createAppElement(app) {
 // ... (Rest of helpers remain unchanged) ...
 
 async function mountAppContent(el, app) {
+    el.appInstance?.dispose();
     const appDef = registry.get(app.subtype);
     let innerHTML = 'Unknown App';
     if (appDef) {
         const appInstance = new appDef.Class();
-        innerHTML = await appInstance.render(app);
+        el.appInstance = appInstance;
+        try { innerHTML = await appInstance.render(app); }
+        catch (error) { innerHTML = '<div class="app-content"></div>'; appInstance.renderError = error; }
+        if (el.appInstance !== appInstance || appInstance.disposed) return;
         el.innerHTML = `
             ${innerHTML}
             <div class="resize-handle"></div>
@@ -151,7 +157,15 @@ async function mountAppContent(el, app) {
             <div class="edit-btn" title="Edit App"><i class="fa-solid fa-pencil"></i></div>
             <div class="delete-btn" title="Delete App"><i class="fa-solid fa-trash"></i></div>
         `;
-        if (appInstance.onMount) setTimeout(() => appInstance.onMount(el, app), 0);
+        setTimeout(async () => {
+            if (!el.isConnected || appInstance.disposed || el.appInstance !== appInstance) return;
+            try {
+                if (appInstance.renderError) throw appInstance.renderError;
+                await appInstance.onMount?.(el, app);
+            } catch (error) {
+                if (!appInstance.disposed) showServiceError(el.querySelector('.app-content') || el, error);
+            }
+        }, 0);
     } else {
         el.innerHTML = innerHTML;
     }

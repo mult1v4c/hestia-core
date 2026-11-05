@@ -1,3 +1,4 @@
+import { showServiceState } from './baseApp.js';
 // js/apps/jellyfinApp.js
 import { BaseApp } from "./baseApp.js";
 import { registry } from "../registry.js";
@@ -22,39 +23,27 @@ export class JellyfinApp extends BaseApp {
     }
 
     onMount(el, app) {
-        const url = app.data.url || '';
-        const apiKey = app.data.apiKey || '';
+        const url = (app.data.url || '/jellyfin-api').trim();
+        const apiKey = (app.data.apiKey || '').trim();
         const userId = app.data.userId || '';
         const intervalTime = parseInt(app.data.interval) || 5000;
 
         if (!url || !apiKey) {
-            el.querySelector('.jellyfin-body').innerHTML = `<div style="padding:10px; opacity:0.6;">Configure URL & API Key</div>`;
+            showServiceState(el.querySelector('.app-content'), 'setup', 'Set the Jellyfin server URL and API key in widget settings.');
             return;
         }
 
         const config = { url, apiKey, userId };
-        const updateLogic = initJellyfin(el, config);
+        const updateLogic = initJellyfin(el.querySelector('.app-content'), config);
 
-        const statusDot = el.querySelector('.jf-status-dot');
-        const statusText = el.querySelector('.jf-status-text');
 
-        const runUpdate = async () => {
-            if (!el.isConnected) return;
-            try {
-                if (updateLogic) await updateLogic();
-                // Success State
-                if (statusDot) statusDot.className = 'jf-status-dot active';
-                if (statusText) statusText.innerText = 'ONLINE';
-            } catch (err) {
-                console.error("[Jellyfin] Error:", err);
-                // Error State
-                if (statusDot) statusDot.className = 'jf-status-dot disabled';
-                if (statusText) statusText.innerText = 'OFFLINE';
-            }
-        };
 
-        const timer = setInterval(runUpdate, intervalTime);
-        runUpdate();
+        this.poll(el, async () => {
+            await updateLogic();
+            if (this.disposed) return;
+            el.querySelector('.jf-status-dot').className = 'jf-status-dot active';
+            el.querySelector('.jf-status-text').textContent = 'ONLINE';
+        }, intervalTime);
     }
 }
 
@@ -80,7 +69,7 @@ registry.register('jellyfin', JellyfinApp, {
         .jellyfin-header {
             position: absolute; top: 0; left: 0; width: 100%;
             padding: 8px 10px; z-index: 10;
-            // background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            /* background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); */
             pointer-events: none;
             display: flex; justify-content: space-between; align-items: center;
         }

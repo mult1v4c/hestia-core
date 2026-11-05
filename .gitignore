@@ -1,0 +1,20 @@
+node_modules/
+test-results/
+playwright-report/
+
+# Local audit and test tooling added during widget maintenance.
+/.dockerignore
+/docs/widget-audit.md
+/package.json
+/package-lock.json
+/playwright.config.js
+/tests/data.test.js
+/tests/services.test.js
+/tests/widgets.spec.js
+/tests/server.js
+/tests/harness.html
+
+# Local compatibility shims; runtime code lives in the original modules.
+/js/apps/service.js
+/js/apps/glances/gData.js
+/js/apps/glances/gSeries.js

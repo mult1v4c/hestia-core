@@ -20,11 +20,13 @@ export function initCpu(el, config) {
     // 2. Setup Resize Observer
     const wrapper = el.querySelector('.canvas-wrapper');
     if (wrapper) {
-        new ResizeObserver(() => {
+        const observer = new ResizeObserver(() => {
             canvas.width = wrapper.clientWidth;
             canvas.height = wrapper.clientHeight;
             drawGraph(canvas, ctx, dataPoints, '--red');
-        }).observe(wrapper);
+        });
+        observer.observe(wrapper);
+        config.addCleanup?.(() => observer.disconnect());
     }
 
     // 3. Return Update Function

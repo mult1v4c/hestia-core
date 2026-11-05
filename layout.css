@@ -1,0 +1,192 @@
+/* -------------------------------------------------------------------------- */
+/* 1. HEADER                                                                  */
+/* -------------------------------------------------------------------------- */
+
+header {
+    padding: 0 20px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-dim);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+    flex-shrink: 0;
+}
+
+h1 {
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+    color: var(--brand-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* 2. DASHBOARD GRID & LINES                                                  */
+/* -------------------------------------------------------------------------- */
+
+.dashboard-container {
+    flex: 1;
+    padding: var(--grid-padding);
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+    gap: var(--gap-size);
+    position: relative;
+    transition: gap 0.3s, padding 0.3s;
+}
+
+.grid-lines {
+    position: absolute;
+    top: var(--grid-padding);
+    left: var(--grid-padding);
+    right: var(--grid-padding);
+    bottom: var(--grid-padding);
+
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+    gap: var(--gap-size);
+
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+.dashboard-container.edit-mode .grid-lines {
+    opacity: 1;
+}
+
+.grid-cell {
+    border: 1px dashed var(--border-dim);
+    border-radius: var(--radius);
+    opacity: 0.5;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* 3. APP CARDS & EDIT MODE                                                   */
+/* -------------------------------------------------------------------------- */
+
+.app-card {
+    background-color: var(--bg-surface);
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    z-index: 10;
+    transition: box-shadow 0.2s, background-color 0.2s;
+    color: var(--text-main);
+}
+
+/* Enabled Outlines Toggle */
+.dashboard-container.show-outlines .app-card {
+    border-color: var(--border-dim);
+}
+
+.shadow-on .app-card {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+/* Edit Mode: Dashed Lines & Re-enabled Transition */
+.dashboard-container.edit-mode .app-card {
+    cursor: grab;
+    border-color: var(--border-dim);
+    border-style: dashed;
+    transition: box-shadow 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+.dashboard-container.edit-mode .app-card:hover {
+    border-color: var(--brand-primary);
+}
+.dashboard-container.edit-mode .app-card.moving {
+    cursor: grabbing;
+    opacity: 0.8;
+    z-index: 100;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+}
+.app-card.collision {
+    border-color: var(--status-error) !important;
+    background-color: rgb(from var(--status-error) r g b / 20%) !important;
+}
+
+.card-title {
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    pointer-events: none;
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+.dashboard-container.edit-mode .card-title {
+    pointer-events: auto;
+    cursor: text;
+}
+.card-title:focus {
+    background: var(--bg-highlight);
+    outline: 1px solid var(--brand-primary);
+    color: var(--text-main);
+}
+
+.card-meta {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 5px;
+    pointer-events: none;
+}
+
+.resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 25px;
+    height: 25px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 50%, var(--border-dim) 50%);
+    border-bottom-right-radius: var(--radius);
+    opacity: 0;
+    z-index: 20;
+    pointer-events: none;
+}
+.dashboard-container.edit-mode .app-card:hover .resize-handle {
+    opacity: 1;
+}
+.dashboard-container.edit-mode .resize-handle {
+    pointer-events: auto;
+}
+
+.delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    background: var(--status-error);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 5000;
+}
+.dashboard-container.edit-mode .app-card:hover .delete-btn {
+    opacity: 1;
+    pointer-events: auto;
+}

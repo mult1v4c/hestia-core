@@ -1,3 +1,5 @@
+import { requestJson, ServiceError } from './baseApp.js';
+import { escapeHtml } from '../utils.js';
 import { BaseApp } from "./baseApp.js";
 import { registry } from "../registry.js";
 
@@ -11,19 +13,21 @@ export class WeatherApp extends BaseApp {
                     <i class="weather-icon fa-solid fa-cloud"></i>
                     <div class="weather-info">
                         <div class="weather-temp">--°</div>
-                        <div class="weather-loc">${locationName}</div>
+                        <div class="weather-loc">${escapeHtml(locationName)}</div>
                     </div>
                 </div>
             </div>`;
     }
 
     async onMount(el, app) {
-        const lat = app.data.lat || 51.5074;
-        const lon = app.data.lon || -0.1278;
+        const lat = app.data.lat === '' || app.data.lat == null ? 51.5074 : Number(app.data.lat);
+        const lon = app.data.lon === '' || app.data.lon == null ? -0.1278 : Number(app.data.lon);
 
-        try {
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
-            const data = await res.json();
+        this.poll(el, async () => {
+            if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new ServiceError('Set valid latitude and longitude.', 'setup');
+            const data = await requestJson(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+            if (this.disposed) return;
+            if (!data.current_weather) throw new ServiceError('Weather data unavailable.');
 
             const temp = Math.round(data.current_weather.temperature);
             const code = data.current_weather.weathercode;
@@ -38,9 +42,7 @@ export class WeatherApp extends BaseApp {
             row.querySelector('.weather-temp').innerText = `${temp}°C`;
             row.querySelector('.weather-icon').className = `weather-icon fa-solid ${iconClass}`;
 
-        } catch (err) {
-            el.querySelector('.weather-loading').innerText = "N/A";
-        }
+        }, 300000);
     }
 }
 

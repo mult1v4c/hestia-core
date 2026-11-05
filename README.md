@@ -93,7 +93,8 @@ python3 -m http.server 8000
 
 To make the integrations work smoothly, Hestia's `default.conf` sets up internal proxies. When configuring apps in the dashboard, use these relative paths:
 
-  * **Pi-hole URL:** `/pi-api/admin/api.php` (instead of `http://192.168.x.x/...`)
+  * **Glances URL:** `/glances-api` (choose the API version installed on your server)
+  * **Pi-hole v6 URL:** `/pi-api/api` (v5: `/pi-api/admin/api.php`)
   * **Deluge URL:** `/deluge-api/json`
   * **Jellyfin URL:** `/jellyfin-api/`
 
@@ -161,3 +162,11 @@ registry.register('my-app', MyApp, {
 ## 📄 License
 
 Project Hestia is open-source and licensed under the **MIT License**.
+
+## Widget fixes and troubleshooting
+
+Data widgets share loading, setup, authentication, error and offline states, with automatic recovery and a Retry button. Temperature graphs overlay all temperature sensors with automatic colors; Disk I/O uses one color per device, solid reads and dashed writes. Storage rows describe deduplicated filesystems, not physical disk sizes. RSS public-proxy fallback is opt-in in widget settings.
+
+The Nginx configuration uses Docker DNS (`127.0.0.11`). Connect Hestia and the services to the same user-defined Docker network, or update the upstream addresses in `default.conf`. Existing saved widget URLs are retained; switch Glances widgets to `/glances-api` if you want same-origin proxying. Rebuild/redeploy the container to apply source and Nginx changes.
+
+The dashboard remains a static site with no Node.js runtime requirement.

@@ -22,27 +22,15 @@ export class PiholeApp extends BaseApp {
     }
 
     onMount(el, app) {
-        const defaultUrl = '/pi-api/admin/api.php';
+        const defaultUrl = '/pi-api/api';
         const rawUrl = app.data.url || defaultUrl;
         const token = app.data.token || '';
         const intervalTime = parseInt(app.data.interval) || 5000;
 
         const config = { url: rawUrl, token };
-        const updateLogic = initSummary(el, config);
+        const updateLogic = initSummary(el.querySelector('.app-content'), config);
 
-        const runUpdate = async () => {
-            if (!el.isConnected) return;
-            try {
-                if (updateLogic) await updateLogic();
-            } catch (err) {
-                console.error("[Pi-hole] Error:", err);
-                const statusText = el.querySelector('.ph-status-text');
-                if (statusText) statusText.innerText = "ERR";
-            }
-        };
-
-        const timer = setInterval(runUpdate, intervalTime);
-        runUpdate();
+        this.poll(el, updateLogic, intervalTime);
     }
 }
 

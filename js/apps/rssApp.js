@@ -1,3 +1,5 @@
+import { request, ServiceError, showServiceState } from './baseApp.js';
+import { escapeHtml } from '../utils.js';
 import { BaseApp } from "./baseApp.js";
 import { registry } from "../registry.js";
 
@@ -10,7 +12,7 @@ export class RssApp extends BaseApp {
                 <div class="rss-header">
                     <div class="rss-header-left">
                         <i class="fa-solid fa-rss"></i>
-                        <span class="rss-title">${title}</span>
+                        <span class="rss-title">${escapeHtml(title)}</span>
                     </div>
                     <i class="fa-solid fa-rotate-right rss-refresh-btn" title="Refresh Feed"></i>
                 </div>
@@ -24,7 +26,7 @@ export class RssApp extends BaseApp {
         const intervalTime = parseInt(app.data.interval) || 60000 * 15;
 
         if (urls.length === 0) {
-            el.querySelector('.rss-list').innerHTML = '<div style="opacity:0.5; text-align:center; padding:10px;">No URL set</div>';
+            showServiceState(el.querySelector('.app-content'), 'setup', 'Set a feed URL in widget settings.');
             return;
         }
 
@@ -37,25 +39,26 @@ export class RssApp extends BaseApp {
 
             let allItems = [];
             let errors = 0;
+            let lastError;
 
             await Promise.all(urls.map(async (url) => {
                 try {
-                    const xmlStr = await fetchWithFallback(url);
+                    const xmlStr = await fetchWithFallback(url, app.data.publicProxy === 'yes');
                     const items = parseRss(xmlStr);
                     allItems = allItems.concat(items);
                 } catch (err) {
-                    console.error(`[RSS] Failed to load ${url}:`, err);
+                    lastError = err;
                     errors++;
                 }
             }));
 
+            if (this.disposed) return;
             // Remove loading state
             if (refreshBtn) refreshBtn.classList.remove('fa-spin');
 
             if (allItems.length === 0) {
-                listEl.innerHTML = `<div style="opacity:0.6; text-align:center; padding:10px; font-size:0.8rem;">
-                    ${errors > 0 ? "Blocked by CORS.<br>Trying Proxy..." : "No items found."}
-                </div>`;
+                if (errors) throw lastError;
+                listEl.textContent = 'No items found.';
                 return;
             }
 
@@ -68,20 +71,20 @@ export class RssApp extends BaseApp {
                 let imgHtml = '';
 
                 if (item.image) {
-                    imgHtml = `<div class="rss-thumb" style="background-image: url('${item.image}')"></div>`;
+                    imgHtml = `<img class="rss-thumb" src="${escapeHtml(safeUrl(item.image))}" alt="" loading="lazy">`;
                 } else {
-                    const iconUrl = `https://www.google.com/s2/favicons?domain=${item.domain}&sz=64`;
+                    const iconUrl = `https://www.google.com/s2/favicons?domain=${escapeHtml(item.domain)}&sz=64`;
                     imgHtml = `<img src="${iconUrl}" class="rss-icon" loading="lazy" onerror="this.style.opacity='0'">`;
                 }
 
                 html += `
-                    <a href="${item.link}" target="_blank" class="rss-item">
+                    <a href="${escapeHtml(safeUrl(item.link))}" target="_blank" rel="noopener noreferrer" class="rss-item">
                         ${imgHtml}
                         <div class="rss-item-main">
-                            <div class="rss-item-title">${item.title}</div>
+                            <div class="rss-item-title">${escapeHtml(item.title)}</div>
                             <div class="rss-item-meta">
-                                <span class="rss-date">${item.dateDisplay}</span>
-                                <span class="rss-domain badge">${item.domain}</span>
+                                <span class="rss-date">${escapeHtml(item.dateDisplay)}</span>
+                                <span class="rss-domain badge">${escapeHtml(item.domain)}</span>
                             </div>
                         </div>
                         <i class="fa-solid fa-chevron-right rss-arrow"></i>
@@ -90,43 +93,43 @@ export class RssApp extends BaseApp {
             });
 
             listEl.innerHTML = html;
+            if (errors) { const note = document.createElement('div'); note.className = 'rss-partial'; note.textContent = `${errors} feed(s) unavailable`; listEl.prepend(note); }
         };
+
+        const refresh = this.poll(el, fetchFeed, intervalTime);
 
         // Manual Refresh Handler
         const btn = el.querySelector('.rss-refresh-btn');
         if (btn) {
             btn.onclick = (e) => {
                 e.stopPropagation(); // Prevent card drag/click
-                fetchFeed();
+                refresh();
             };
         }
 
-        // Initial Load
-        fetchFeed();
 
-        // Auto Refresh
-        setInterval(fetchFeed, intervalTime);
     }
 }
 
 // --- HELPERS ---
 
-async function fetchWithFallback(url) {
-    try {
-        const res = await fetch(url);
-        if (res.ok) return await res.text();
-        throw new Error("Direct fetch failed");
-    } catch (e) {
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-        const res = await fetch(proxyUrl);
-        if (!res.ok) throw new Error("Proxy fetch failed");
-        return await res.text();
+function safeUrl(value) {
+    try { const url = new URL(value, window.location.href); return /^https?:$/.test(url.protocol) ? url.href : ''; }
+    catch { return ''; }
+}
+
+async function fetchWithFallback(url, allowPublicProxy) {
+    try { return await (await request(url)).text(); }
+    catch (error) {
+        if (!allowPublicProxy) throw error;
+        return (await request(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`)).text();
     }
 }
 
 function parseRss(xmlText) {
     const parser = new DOMParser();
     const xml = parser.parseFromString(xmlText, "text/xml");
+    if (xml.querySelector('parsererror')) throw new ServiceError('Feed returned invalid XML. Check the feed URL.');
     const nodes = Array.from(xml.querySelectorAll("item, entry"));
 
     return nodes.map(node => {
@@ -185,7 +188,8 @@ function parseRss(xmlText) {
 }
 
 function getVal(parent, tag) {
-    const el = parent.querySelector(tag);
+    // XML namespace prefixes are tag names, not CSS pseudo-classes.
+    const el = parent.getElementsByTagName(tag)[0];
     return el ? el.textContent.trim() : "";
 }
 
@@ -200,6 +204,7 @@ registry.register('rss', RssApp, {
             type: 'textarea',
             placeholder: 'https://site1.com/rss\nhttps://site2.com/feed'
         },
+        { name: 'publicProxy', label: 'Allow public RSS proxy (shares feed URL)', type: 'select', defaultValue: 'no', options: [{ label: 'No', value: 'no' }, { label: 'Yes', value: 'yes' }] },
         { name: 'customTitle', label: 'Header Title', type: 'text', placeholder: 'My Feeds' },
         { name: 'interval', label: 'Refresh (ms)', type: 'text', defaultValue: '900000' }
     ],

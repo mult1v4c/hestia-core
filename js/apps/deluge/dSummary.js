@@ -1,4 +1,6 @@
 import { fetchDeluge, formatBytes } from "./dCore.js";
+import { ServiceError } from '../baseApp.js';
+import { escapeHtml } from '../../utils.js';
 
 export function initDeluge(el, config) {
     const { url, password } = config;
@@ -45,9 +47,12 @@ export function initDeluge(el, config) {
             "name", "state", "progress", "time_added"
         ];
 
+        const connected = await fetchDeluge(url, 'web.connected', [], password);
+        if (connected === false) throw new ServiceError('Web UI is reachable, but its daemon is disconnected. Connect a daemon in Deluge Connection Manager.', 'offline');
+        if (connected !== true) throw new ServiceError('Invalid Deluge connection response.');
         const data = await fetchDeluge(url, 'web.update_ui', [keys, {}], password);
 
-        if (!data || !data.torrents) return;
+        if (!data || !data.torrents || typeof data.torrents !== 'object') throw new ServiceError('Deluge returned no torrent data. Check its daemon connection.');
 
         // --- A. Global Stats ---
         const stats = data.stats || {};
@@ -76,7 +81,7 @@ export function initDeluge(el, config) {
 
             let html = '';
             topTorrents.forEach(t => {
-                const pct = t.progress.toFixed(1) + '%';
+                const pct = Math.max(0, Math.min(100, Number(t.progress) || 0)).toFixed(1) + '%';
                 let stateClass = 'text-muted';
                 let barColor = 'var(--text-muted)';
 
@@ -87,14 +92,14 @@ export function initDeluge(el, config) {
                 html += `
                     <div class="d-item">
                         <div class="d-item-row">
-                            <div class="d-item-name" title="${t.name}">${t.name}</div>
+                            <div class="d-item-name" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</div>
                             <div class="d-item-pct">${pct}</div>
                         </div>
                         <div class="d-item-bar-bg">
                             <div class="d-item-bar-fill" style="width: ${pct}; background-color: ${barColor}"></div>
                         </div>
                         <div class="d-item-row meta">
-                            <span class="${stateClass}">${t.state}</span>
+                            <span class="${stateClass}">${escapeHtml(t.state)}</span>
                         </div>
                     </div>
                 `;

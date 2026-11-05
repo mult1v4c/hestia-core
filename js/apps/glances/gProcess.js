@@ -1,3 +1,4 @@
+import { escapeHtml } from '../../utils.js';
 import { fetchGlances } from "./gCore.js";
 
 export function initProcess(el, config) {
@@ -38,13 +39,13 @@ export function initProcess(el, config) {
         grid.innerHTML = '';
 
         top10.forEach(p => {
-            const cpu = p.cpu_percent.toFixed(1);
-            const mem = p.memory_percent.toFixed(1);
+            const cpu = (Number(p.cpu_percent) || 0).toFixed(1);
+            const mem = (Number(p.memory_percent) || 0).toFixed(1);
 
             const row = document.createElement('div');
             row.className = 'proc-row';
             row.innerHTML = `
-                <div class="p-name" title="${p.name}">${p.name}</div>
+                <div class="p-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
                 <div class="p-val p-cpu">${cpu}%</div>
                 <div class="p-val p-mem">${mem}%</div>
                 <div class="p-bar" style="width: ${Math.min(p.cpu_percent, 100)}%"></div>

@@ -1,3 +1,4 @@
+import { escapeHtml } from '../../utils.js';
 //
 import { fetchGlances } from "./gCore.js";
 
@@ -19,16 +20,16 @@ export function initDocker(el, config) {
             // Primary endpoint
             containers = await fetchGlances(url, apiVer, 'containers');
         } catch (e) {
+            if (e.status !== 404) throw e;
             // Fallback logic
             try {
                 containers = await fetchGlances(url, apiVer, 'docker');
             } catch (err2) {
+                if (err2.status !== 404) throw err2;
                 try {
                     containers = await fetchGlances(url, apiVer, 'docker/containers');
                 } catch (err3) {
-                    console.error("[Docker] All endpoints failed.");
-                    el.querySelector('#docker-grid').innerHTML = `<div style="text-align:center; padding:10px; opacity:0.6; font-size:0.8rem;">Docker API unavailable.<br>Check server config.</div>`;
-                    return;
+                    throw err3;
                 }
             }
         }
@@ -67,8 +68,10 @@ export function initDocker(el, config) {
 
                 const status = (c.Status || c.State || c.status || '').toLowerCase();
 
-                const cpu = c.cpu ? c.cpu.total.toFixed(1) + '%' : '';
-                const mem = c.memory ? (c.memory.usage / 1024 / 1024).toFixed(0) + 'MB' : '';
+                const cpuValue = c.cpu_percent ?? c.cpu?.total;
+                const cpu = cpuValue != null ? Number(cpuValue).toFixed(1) + '%' : '';
+                const memValue = c.memory_usage ?? c.memory?.usage;
+                const mem = memValue != null ? (Number(memValue) / 1024 / 1024).toFixed(0) + 'MB' : '';
 
                 let statusClass = 'stopped';
                 if (status === 'running') statusClass = 'running';
@@ -82,7 +85,7 @@ export function initDocker(el, config) {
                 card.innerHTML = `
                     <div class="d-status-dot"></div>
                     <div class="d-info">
-                        <div class="d-name" title="${name}">${name}</div>
+                        <div class="d-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
                         ${statsHtml}
                     </div>
                 `;

@@ -26,28 +26,16 @@ export class DelugeApp extends BaseApp {
         const intervalTime = parseInt(app.data.interval) || 5000;
 
         const config = { url: rawUrl, password };
-        const updateLogic = initDeluge(el, config);
+        const updateLogic = initDeluge(el.querySelector('.app-content'), config);
 
-        const statusDot = el.querySelector('.d-status-dot');
-        const statusText = el.querySelector('.d-status-text');
 
-        const runUpdate = async () => {
-            if (!el.isConnected) return;
-            try {
-                if (updateLogic) await updateLogic();
-                // Success State
-                if (statusDot) statusDot.className = 'd-status-dot active';
-                if (statusText) statusText.innerText = 'ONLINE';
-            } catch (err) {
-                console.error("[Deluge] Error:", err);
-                // Error State
-                if (statusDot) statusDot.className = 'd-status-dot disabled';
-                if (statusText) statusText.innerText = 'ERR';
-            }
-        };
 
-        const timer = setInterval(runUpdate, intervalTime);
-        runUpdate();
+        this.poll(el, async () => {
+            await updateLogic();
+            if (this.disposed) return;
+            el.querySelector('.d-status-dot').className = 'd-status-dot active';
+            el.querySelector('.d-status-text').textContent = 'ONLINE';
+        }, intervalTime);
     }
 }
 

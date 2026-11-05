@@ -38,11 +38,13 @@ export class ClockApp extends BaseApp {
             }
         };
 
+        let intervalId;
         // Run immediately
         update();
 
         // Start Loop
-        const intervalId = setInterval(update, 1000);
+        intervalId = setInterval(update, 1000);
+        this.addCleanup(() => clearInterval(intervalId));
     }
 }
 

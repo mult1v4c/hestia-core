@@ -12,13 +12,16 @@ export class PipesApp extends BaseApp {
         const ctx = canvas.getContext('2d');
 
         // Configuration
-        const gridSize = parseInt(app.data.gridSize) || 20;
-        const speed = parseInt(app.data.speed) || 50;
-        const pipeCount = parseInt(app.data.pipeCount) || 3;
+        const gridSize = Math.max(4, Math.min(100, parseInt(app.data.gridSize) || 20));
+        const speed = Math.max(16, parseInt(app.data.speed) || 50);
+        const pipeCount = Math.max(1, Math.min(50, parseInt(app.data.pipeCount) || 3));
         const turnChance = 0.1;
 
         // State
         let pipes = [];
+        let segments = [];
+        let frame = 0;
+        const lifetime = 80;
         let interval;
         let w, h, cols, rows;
 
@@ -40,8 +43,9 @@ export class PipesApp extends BaseApp {
             rows = Math.ceil(h / gridSize);
 
             // Clear screen
-            ctx.fillStyle = resolveToHex('var(--bg-canvas)');
-            ctx.fillRect(0, 0, w, h);
+            ctx.clearRect(0, 0, w, h);
+            segments = [];
+            frame = 0;
 
             pipes = [];
             for(let i=0; i<pipeCount; i++) spawnPipe();
@@ -59,10 +63,10 @@ export class PipesApp extends BaseApp {
         };
 
         const step = () => {
-            // Fade Effect
-            const bgHex = resolveToHex('var(--bg-canvas)');
-            ctx.fillStyle = bgHex + '10'; // '10' = Hex Transparency
-            ctx.fillRect(0, 0, w, h);
+            if (!el.isConnected) return;
+            frame++;
+            ctx.clearRect(0, 0, w, h);
+            segments = segments.filter(segment => frame - segment.born < lifetime);
 
             pipes.forEach((p, index) => {
                 if (!p.alive) {
@@ -99,25 +103,7 @@ export class PipesApp extends BaseApp {
                 const endX = (p.x * gridSize) + half;
                 const endY = (p.y * gridSize) + half;
 
-                ctx.lineCap = 'butt';
-                ctx.lineJoin = 'butt';
-
-                const pipeColorHex = resolveToHex(p.color);
-                const pipeWidth = gridSize / 2;
-
-                // 1. PATCH THE JOINT
-                ctx.beginPath();
-                ctx.fillStyle = pipeColorHex;
-                ctx.arc(startX, startY, pipeWidth / 2, 0, Math.PI * 2);
-                ctx.fill();
-
-                // 2. DRAW PIPE BODY
-                ctx.beginPath();
-                ctx.strokeStyle = pipeColorHex;
-                ctx.lineWidth = pipeWidth;
-                ctx.moveTo(startX, startY);
-                ctx.lineTo(endX, endY);
-                ctx.stroke();
+                segments.push({ startX, startY, endX, endY, color: p.color, born: frame });
 
                 // Turn logic
                 if (Math.random() < turnChance) {
@@ -125,6 +111,19 @@ export class PipesApp extends BaseApp {
                     p.dir = (p.dir + turn + 4) % 4;
                 }
             });
+            // Redraw bounded history over a transparent canvas. Old pixels vanish completely.
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = gridSize / 2;
+            for (const segment of segments) {
+                ctx.globalAlpha = Math.pow(1 - (frame - segment.born) / lifetime, 2);
+                ctx.strokeStyle = resolveToHex(segment.color);
+                ctx.beginPath();
+                ctx.moveTo(segment.startX, segment.startY);
+                ctx.lineTo(segment.endX, segment.endY);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
         };
 
         resize();
@@ -154,7 +153,7 @@ registry.register('pipes', PipesApp, {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             display: block;
-            background-color: var(--bg-canvas);
+            background-color: transparent;
             z-index: 0;
             border-radius: var(--radius);
         }

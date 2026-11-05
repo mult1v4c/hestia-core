@@ -1,3 +1,4 @@
+import { ServiceError } from '../baseApp.js';
 //
 import { fetchPihole, formatNumber } from "./piCore.js";
 
@@ -29,12 +30,14 @@ export function initSummary(el, config) {
     // 2. Return Update Function
     return async () => {
         const cleanBase = url.endsWith('/') ? url.slice(0, -1) : url;
-        const targetUrl = `${cleanBase}/stats/summary`;
+        const legacy = /api\.php(?:\?|$)/.test(cleanBase);
+        const targetUrl = legacy ? cleanBase : `${cleanBase}/stats/summary`;
 
-        const data = await fetchPihole(targetUrl, {}, token, cleanBase);
+        const data = await fetchPihole(targetUrl, legacy ? { summaryRaw: '', auth: token } : {}, token, legacy ? '' : cleanBase);
 
         // Update Metrics
-        const queries = data.queries || {};
+        const queries = legacy ? { total: data.dns_queries_today, blocked: data.ads_blocked_today, percent_blocked: data.ads_percentage_today } : data.queries;
+        if (queries?.total == null) throw new ServiceError('Pi-hole returned no statistics. Check API version and credentials.');
         el.querySelector('#val-total').innerText = formatNumber(queries.total);
         el.querySelector('#val-blocked').innerText = formatNumber(queries.blocked);
 

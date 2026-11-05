@@ -24,43 +24,29 @@ export class GlancesApp extends BaseApp {
     }
 
     onMount(el, app) {
-        let rawUrl = app.data.url || 'http://localhost:61208';
+        let rawUrl = app.data.url || '/glances-api';
         const url = rawUrl.replace(/\/+$/, '').replace(/\/api\/\d+$/, '');
         const metric = app.data.metric || 'cpu';
         const apiVer = app.data.apiVer || '3';
         const intervalTime = parseInt(app.data.interval) || 1000;
 
         const dataPoints = new Array(HISTORY_SIZE).fill(0);
-        let isRunning = true;
         let updateLogic = null;
 
-        const config = { url, apiVer, dataPoints };
+        const config = { url, apiVer, dataPoints, addCleanup: fn => this.addCleanup(fn) };
 
-        if (metric === 'cpu') updateLogic = initCpu(el, config);
-        else if (metric === 'percpu') updateLogic = initPerCpu(el, config);
-        else if (metric === 'mem') updateLogic = initMem(el, config);
-        else if (metric === 'net') updateLogic = initNetwork(el, config);
-        else if (metric === 'sensors') updateLogic = initSensors(el, config);
-        else if (metric === 'disk') updateLogic = initDisk(el, config);
-        else if (metric === 'docker') updateLogic = initDocker(el,config);
-        else if (metric === 'process') updateLogic = initProcess(el, config);
-        else if (metric === 'uptime') updateLogic = initUptime(el, config);
+        if (metric === 'cpu') updateLogic = initCpu(el.querySelector('.app-content'), config);
+        else if (metric === 'percpu') updateLogic = initPerCpu(el.querySelector('.app-content'), config);
+        else if (metric === 'mem') updateLogic = initMem(el.querySelector('.app-content'), config);
+        else if (metric === 'net') updateLogic = initNetwork(el.querySelector('.app-content'), config);
+        else if (metric === 'sensors') updateLogic = initSensors(el.querySelector('.app-content'), config);
+        else if (metric === 'disk') updateLogic = initDisk(el.querySelector('.app-content'), config);
+        else if (metric === 'docker') updateLogic = initDocker(el.querySelector('.app-content'), config);
+        else if (metric === 'process') updateLogic = initProcess(el.querySelector('.app-content'), config);
+        else if (metric === 'uptime') updateLogic = initUptime(el.querySelector('.app-content'), config);
 
-        const runUpdate = async () => {
-            if (!isRunning || !el.isConnected) return;
-            try {
-                if (updateLogic) await updateLogic();
-            } catch (err) {
-                console.error("[Glances] Error:", err);
-                const titleEl = el.querySelector('.metric-title');
-                const valEl = el.querySelector('.metric-value');
-                if (titleEl) titleEl.innerText = "ERROR";
-                if (valEl) valEl.innerText = err.message.includes('404') ? "404" : "OFFLINE";
-            }
-        };
-
-        const timer = setInterval(runUpdate, intervalTime);
-        runUpdate();
+        if (!updateLogic) throw new Error('Unknown Glances metric');
+        this.poll(el, updateLogic, intervalTime);
     }
 }
 
@@ -69,7 +55,7 @@ registry.register('glances', GlancesApp, {
     category: 'data',
     defaultSize: { cols: 1, rows: 1 },
     settings: [
-        { name: 'url', label: 'Glances URL', type: 'text', defaultValue: 'http://localhost:61208' },
+        { name: 'url', label: 'Glances URL', type: 'text', defaultValue: '/glances-api' },
         {
             name: 'apiVer',
             label: 'API Version',
@@ -94,7 +80,7 @@ registry.register('glances', GlancesApp, {
                 { label: 'Disk I/O & Usage', value: 'disk' },
                 { label: 'Docker Containers', value: 'docker' },
                 { label: 'Top Processes', value: 'process' },
-                { label: 'Temperatures (List)', value: 'sensors' },
+                { label: 'Temperatures (Graph)', value: 'sensors' },
                 { label: 'System Uptime', value: 'uptime' }
             ]
         },
@@ -181,12 +167,22 @@ registry.register('glances', GlancesApp, {
             display: none; /* Hidden by default now */
         }
 
+        .series-widget { flex:1; min-height:0; display:flex; flex-direction:column; gap:4px; }
+        .series-plot { flex:1; min-height:36px; position:relative; background:rgba(0,0,0,.15); border-radius:4px; }
+        .series-scale { font: .6rem monospace; color:var(--text-muted); flex-shrink:0; }
+        .series-legend { display:flex; flex-wrap:wrap; gap:3px 10px; max-height:35%; overflow:auto; font:.65rem monospace; flex-shrink:0; }
+        .series-legend span { display:flex; align-items:center; gap:4px; min-width:0; overflow-wrap:anywhere; }
+        .series-legend i { width:14px; flex-shrink:0; }
+        .glances-header { gap:5px; }
+        .metric-value { font-size:clamp(.75rem, 1.2vw, 1.2rem); white-space:nowrap; }
         /* --- DISK GRID --- */
+        .disk-body { overflow-y:auto; }
         .disk-header-section {
             position: relative; overflow: hidden;
             width: 100%;
-            height: 100px;
-            flex-shrink: 0;
+            height: 55%;
+            min-height: 70px;
+            flex: 1 1 55%;
             border-bottom: 1px solid var(--border-dim);
             margin-bottom: 5px;
         }
@@ -202,11 +198,11 @@ registry.register('glances', GlancesApp, {
         .disk-grid {
             flex: 1;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
             grid-auto-rows: minmax(60px, 1fr);
             gap: 5px;
             overflow-y: auto;
-            min-height: 0;
+            min-height: 60px;
             padding-top: 5px;
         }
         .disk-grid::-webkit-scrollbar { width: 0; }

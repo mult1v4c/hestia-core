@@ -1,150 +1,46 @@
-import { fetchGlances, drawGraph, HISTORY_SIZE, formatBytes } from "./gCore.js";
-import { resolveToHex } from "../../utils.js";
+import { fetchGlances, formatBytes } from './gCore.js';
+import { asList, sampleRate, storageVolumes } from './gCore.js';
+import { createSeriesGraph } from './gCore.js';
+import { resolveToHex, escapeHtml } from '../../utils.js';
+
+export function diskSamples(raw) {
+    return asList(raw).flatMap(d => {
+        const name = d.disk_name || d.name;
+        if (!name) return [];
+        return [
+            { id: `${name}:read`, colorKey: name, label: `${name} R`, value: sampleRate(d, 'read_bytes') },
+            { id: `${name}:write`, colorKey: name, label: `${name} W`, value: sampleRate(d, 'write_bytes'), dashed: true }
+        ];
+    });
+}
 
 export function initDisk(el, config) {
-    const { url, apiVer, dataPoints } = config;
-    const bodyEl = el.querySelector('.glances-body');
-    let lastIo = null;
-
-    // 1. Setup DOM
-    bodyEl.innerHTML = `
-        <div class="disk-header-section">
-            <canvas class="glances-graph"></canvas>
-            <div class="disk-io-overlay">
-                <span id="io-read">R: --</span>
-                <span id="io-write">W: --</span>
-            </div>
-        </div>
-        <div class="disk-grid" id="disk-grid">Scanning...</div>
-    `;
-
-    const canvas = el.querySelector('canvas');
-    const ctx = canvas.getContext('2d');
-    const titleEl = el.querySelector('.metric-title');
-    const valEl = el.querySelector('.metric-value');
-
-    // Resize Observer
-    const wrapper = el.querySelector('.disk-header-section');
-    if (wrapper) {
-        new ResizeObserver(() => {
-            canvas.width = wrapper.clientWidth;
-            canvas.height = wrapper.clientHeight;
-            if (dataPoints.length > 0) {
-                const peak = Math.max(...dataPoints, 1024 * 1024);
-                drawGraph(canvas, ctx, dataPoints, '--purple', peak * 1.2);
-            }
-        }).observe(wrapper);
-    }
-
-    // 2. Return Update Function
+    const body = el.querySelector('.glances-body');
+    body.classList.add('disk-body');
+    body.innerHTML = '<div class="disk-header-section series-widget"></div><div class="disk-grid"></div>';
+    const update = createSeriesGraph(body.firstElementChild, { addCleanup: config.addCleanup, floor: 1024 });
     return async () => {
-        const [diskIoData, fsData] = await Promise.all([
-            fetchGlances(url, apiVer, 'diskio'),
-            fetchGlances(url, apiVer, 'fs')
+        const [io, fs] = await Promise.all([
+            fetchGlances(config.url, config.apiVer, 'diskio'),
+            fetchGlances(config.url, config.apiVer, 'fs')
         ]);
-
-        // --- PART A: Total I/O Speed (Graph) ---
-        const ioList = Array.isArray(diskIoData) ? diskIoData : Object.values(diskIoData);
-        let totalRead = 0;
-        let totalWrite = 0;
-
-        ioList.forEach(d => {
-            totalRead += d.read_bytes;
-            totalWrite += d.write_bytes;
-        });
-
-        const now = Date.now();
-
-        if (lastIo) {
-            const timeDiff = (now - lastIo.time) / 1000;
-            if (timeDiff > 0) {
-                const rSpeed = Math.max(0, (totalRead - lastIo.read) / timeDiff);
-                const wSpeed = Math.max(0, (totalWrite - lastIo.write) / timeDiff);
-                const totalSpeed = rSpeed + wSpeed;
-
-                titleEl.innerText = "DISK I/O";
-                valEl.innerText = formatBytes(totalSpeed) + '/s';
-
-                el.querySelector('#io-read').innerText = `R: ${formatBytes(rSpeed)}/s`;
-                el.querySelector('#io-write').innerText = `W: ${formatBytes(wSpeed)}/s`;
-
-                dataPoints.push(totalSpeed);
-                if (dataPoints.length > HISTORY_SIZE) dataPoints.shift();
-
-                const peak = Math.max(...dataPoints, 1024 * 1024);
-                drawGraph(canvas, ctx, dataPoints, '--purple', peak * 1.2);
-            }
-        } else {
-            titleEl.innerText = "DISK I/O";
-            valEl.innerText = "Calc...";
-        }
-
-        lastIo = { read: totalRead, write: totalWrite, time: now };
-
-        // --- PART B: File System Usage (Pie Grid) ---
-        const fsList = Array.isArray(fsData) ? fsData : Object.values(fsData);
-        const grid = el.querySelector('#disk-grid');
-
-        grid.innerHTML = '';
-
-        // --- DEDUPLICATION LOGIC ---
-        // Keep track of devices we've already drawn to avoid duplicates
-        const seenDevices = new Set();
-
-        fsList.forEach(fs => {
-            const dev = fs.device_name;
-
-            // 1. Filter out Loopback devices (Snaps)
-            if (dev.startsWith('/dev/loop')) return;
-
-            // 2. Must be a physical device
-            if (!dev.startsWith('/dev/')) return;
-
-            // 3. Deduplicate!
-            // If we have already seen 'nvme0n1p2', skip this entry
-            if (seenDevices.has(dev)) return;
-            seenDevices.add(dev);
-
-            // --- DISPLAY LOGIC ---
-            // Clean up device name: "/dev/nvme0n1p2" -> "nvme0n1p2"
-            let prettyName = dev.replace('/dev/', '');
-
-            // For the sub-label, since mount points are messy in Docker (/etc/hosts),
-            // we will just show "Physical Vol" or "Partition"
-            let subLabel = "Volume";
-            if (fs.mnt_point === '/') subLabel = 'Root';
-
+        const samples = diskSamples(io);
+        el.querySelector('.metric-title').textContent = 'DISK I/O';
+        // Listing devices avoids double-counting parent disks and their partitions.
+        el.querySelector('.metric-value').textContent = `${samples.length / 2} drives`;
+        update(samples, value => `${formatBytes(value)}/s`);
+        const grid = el.querySelector('.disk-grid');
+        grid.replaceChildren();
+        for (const volume of storageVolumes(fs)) {
             const card = document.createElement('div');
             card.className = 'disk-card';
-
-            card.innerHTML = `
-                <div class="disk-pie-wrapper">
-                    <canvas width="50" height="50"></canvas>
-                    <div class="disk-percent">${Math.round(fs.percent)}%</div>
-                </div>
-                <div class="disk-info">
-                    <div class="disk-name" title="${dev}">${prettyName}</div>
-                    <div class="disk-meta">${subLabel}</div>
-                    <div class="disk-meta">${formatBytes(fs.used)} / ${formatBytes(fs.size)}</div>
-                </div>
-            `;
-
+            card.innerHTML = `<div class="disk-pie-wrapper"><canvas width="50" height="50"></canvas><div class="disk-percent">${Math.round(volume.percent)}%</div></div>
+                <div class="disk-info"><div class="disk-name" title="${escapeHtml(volume.device)}">${escapeHtml(volume.name)}</div>
+                <div class="disk-meta">${escapeHtml(volume.mount)}</div><div class="disk-meta">${formatBytes(volume.used)} / ${formatBytes(volume.size)}</div></div>`;
             grid.appendChild(card);
-
-            const pCanvas = card.querySelector('canvas');
-            const pCtx = pCanvas.getContext('2d');
-
-            // Color Logic
-            let colorVar = '--cyan';
-            if (fs.percent > 90) colorVar = '--red';
-            else if (fs.percent > 75) colorVar = '--orange';
-
-            drawPie(pCtx, fs.percent, colorVar, '--bg-highlight');
-        });
-
-        if (grid.children.length === 0) {
-             grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; opacity:0.5; font-size:0.8rem; padding-top:10px;">No volumes found</div>';
+            drawPie(card.querySelector('canvas').getContext('2d'), volume.percent, volume.percent > 90 ? '--red' : volume.percent > 75 ? '--orange' : '--cyan', '--bg-highlight');
         }
+        if (!grid.children.length) grid.textContent = 'No storage volumes reported';
     };
 }
 

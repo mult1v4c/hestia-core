@@ -1,3 +1,5 @@
+import { ServiceError } from '../baseApp.js';
+import { escapeHtml } from '../../utils.js';
 import { fetchJellyfin, getJellyfinImage } from "./jCore.js";
 
 export function initJellyfin(el, config) {
@@ -36,39 +38,29 @@ export function initJellyfin(el, config) {
     `;
 
     // State for ID Resolution
-    let resolvedUserId = userId;
+    let resolvedUserId = (userId || '').trim();
     let isIdResolved = false;
 
     // 2. Return Update Function
     return async () => {
-        // --- STEP 0: Auto-Resolve Username ---
-        if (!isIdResolved && resolvedUserId) {
-            try {
-                if (resolvedUserId.length === 32) {
-                    isIdResolved = true;
-                } else {
-                    const users = await fetchJellyfin(url, '/Users', {}, apiKey);
-                    const match = users.find(u =>
-                        u.Name.toLowerCase() === resolvedUserId.toLowerCase() ||
-                        u.Id === resolvedUserId
-                    );
-                    if (match) {
-                        resolvedUserId = match.Id;
-                        isIdResolved = true;
-                    }
-                }
-            } catch (e) {
-                console.error("[Jellyfin] User lookup failed:", e);
-            }
-        }
-
         // --- STEP 1: Check Sessions ---
         const sessions = await fetchJellyfin(url, '/Sessions', {}, apiKey);
+        if (!Array.isArray(sessions)) throw new ServiceError('Invalid Jellyfin sessions response.');
         const activeSession = sessions.find(s => s.NowPlayingItem && s.NowPlayingItem.MediaType === 'Video');
 
         if (activeSession) {
             renderPlayer(el, url, activeSession);
         } else {
+            if (!isIdResolved && resolvedUserId) {
+                if (!/^(?:[a-f0-9]{32}|[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/i.test(resolvedUserId)) {
+                    const users = await fetchJellyfin(url, '/Users', {}, apiKey);
+                    if (!Array.isArray(users)) throw new ServiceError('Invalid Jellyfin users response.');
+                    const match = users.find(user => user.Name?.toLowerCase() === resolvedUserId.toLowerCase());
+                    if (!match) throw new ServiceError('Jellyfin user not found. Check the User ID / Name setting.', 'setup');
+                    resolvedUserId = match.Id;
+                }
+                isIdResolved = true;
+            }
             await renderShelf(el, url, apiKey, resolvedUserId);
         }
     };
@@ -109,7 +101,7 @@ function renderPlayer(el, baseUrl, session) {
 
     // 3. Progress
     if (session.PlayState) {
-        const pct = (session.PlayState.PositionTicks / item.RunTimeTicks) * 100;
+        const pct = item.RunTimeTicks > 0 ? Math.max(0, Math.min(100, (Number(session.PlayState.PositionTicks) || 0) / item.RunTimeTicks * 100)) : 0;
         el.querySelector('.jf-progress-fill').style.width = `${pct}%`;
         el.querySelector('.jf-state').innerText = session.PlayState.IsPaused ? "PAUSED" : "PLAYING";
     }
@@ -122,21 +114,16 @@ async function renderShelf(el, baseUrl, apiKey, userId) {
     player.style.display = 'none';
     shelf.style.display = 'flex';
 
-    if (!userId) {
-        el.querySelector('#jf-list').innerHTML = '<div style="opacity:0.5; font-size:0.8rem; text-align:center; padding-top:20px;">User not found</div>';
-        return;
-    }
-
-    // Fetch Latest Movies
-    const response = await fetchJellyfin(baseUrl, `/Users/${userId}/Items/Latest`, {
-        Limit: 20,
-        IncludeItemTypes: "Movie",
-        Fields: "ProductionYear,OfficialRating,Genres"
+    // API keys can request a server-wide shelf when no user is configured.
+    const response = await fetchJellyfin(baseUrl, userId ? '/Items/Latest' : '/Items', {
+        ...(userId ? { UserId: userId } : { SortBy: 'DateCreated', SortOrder: 'Descending', Recursive: true }),
+        Limit: 20, IncludeItemTypes: 'Movie', Fields: 'ProductionYear,OfficialRating,Genres'
     }, apiKey);
 
     let latest = [];
     if (Array.isArray(response)) latest = response;
-    else if (response && response.Items) latest = response.Items;
+    else if (Array.isArray(response?.Items)) latest = response.Items;
+    else throw new ServiceError('Invalid Jellyfin library response.');
 
     const listEl = el.querySelector('#jf-list');
     listEl.innerHTML = '';
@@ -156,14 +143,14 @@ async function renderShelf(el, baseUrl, apiKey, userId) {
         card.style.setProperty('--bg-url', `url('${backdropUrl}')`);
 
         card.innerHTML = `
-            <div class="jf-poster-thumb" style="background-image: url('${imgUrl}')"></div>
+            <div class="jf-poster-thumb" style="background-image: url('${escapeHtml(imgUrl)}')"></div>
             <div class="jf-item-info">
-                <div class="jf-item-title" title="${item.Name}">${item.Name}</div>
+                <div class="jf-item-title" title="${escapeHtml(item.Name)}">${escapeHtml(item.Name)}</div>
                 <div class="jf-item-meta">
-                    <span class="jf-item-year">${year}</span>
-                    ${rating ? `<span class="jf-item-rating">${rating}</span>` : ''}
+                    <span class="jf-item-year">${escapeHtml(year)}</span>
+                    ${rating ? `<span class="jf-item-rating">${escapeHtml(rating)}</span>` : ''}
                 </div>
-                <div class="jf-item-genre">${genres}</div>
+                <div class="jf-item-genre">${escapeHtml(genres)}</div>
             </div>
         `;
 

@@ -1,70 +1,34 @@
-import { showToast } from "../../ui/toasts.js";
+import { requestJson, ServiceError } from '../baseApp.js';
+export { formatBytes } from '../glances/gCore.js';
 
 let requestId = 1;
-
-export async function fetchDeluge(url, method, params = [], password = "") {
-    // 1. Construct RPC Payload
-    const payload = {
-        method: method,
-        params: params,
-        id: requestId++
-    };
-
-    const doRequest = async () => {
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-
-        if (data.error) throw new Error(data.error.message || "RPC Error");
-        return data.result;
-    };
-
-    try {
-        // 2. Try Request
-        return await doRequest();
-    } catch (err) {
-        // 3. Handle Auth Failure (Deluge usually returns null result or specific error on auth fail)
-        // If we have a password, try to log in and retry ONCE.
-        if (password) {
-            console.warn("[Deluge] Request failed, attempting login...", err);
-            try {
-                // Auth Call
-                const authPayload = {
-                    method: 'auth.login',
-                    params: [password],
-                    id: requestId++
-                };
-                const authRes = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(authPayload)
-                });
-                const authData = await authRes.json();
-
-                if (authData.result === true) {
-                    console.log("[Deluge] Login successful. Retrying...");
-                    return await doRequest();
-                } else {
-                    throw new Error("Invalid Password");
-                }
-            } catch (loginErr) {
-                console.error("[Deluge] Auth failed:", loginErr);
-                throw loginErr;
-            }
-        }
-        throw err;
-    }
+export function delugeUrl(raw) {
+    const url = new URL(raw.trim(), window.location.origin);
+    url.pathname = url.pathname.replace(/\/+$/, '');
+    if (!url.pathname.endsWith('/json')) url.pathname += '/json';
+    return url;
 }
 
-export function formatBytes(bytes, decimals = 1) {
-    if (!bytes) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+export async function fetchDeluge(rawUrl, method, params = [], password = '') {
+    const url = delugeUrl(rawUrl);
+    const rpc = async (name, args) => {
+        const data = await requestJson(url, {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method: name, params: args, id: requestId++ })
+        });
+        if (data?.error) {
+            const auth = Number(data.error.code) === 1 || /not authenticated|not authorized|unauthorized/i.test(data.error.message || '');
+            throw new ServiceError(auth ? 'Deluge session expired. Check the Web password.' : 'Deluge RPC failed. Check its Web UI and daemon.', auth ? 'auth' : 'error');
+        }
+        if (!data || !Object.hasOwn(data, 'result')) throw new ServiceError('Invalid Deluge RPC response. Check the JSON-RPC URL.');
+        return data.result;
+    };
+    try { return await rpc(method, params); }
+    catch (error) {
+        // Only authentication failures warrant a login. Preserve gateway errors.
+        if (error.kind !== 'auth' || !password || method === 'auth.login') throw error;
+        if (await rpc('auth.login', [password]) !== true) throw new ServiceError('Deluge rejected the Web password.', 'auth');
+        return rpc(method, params);
+    }
 }

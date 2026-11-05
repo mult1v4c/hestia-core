@@ -1,3 +1,5 @@
+import { storageVolumes } from './glances/gCore.js';
+import { escapeHtml } from '../utils.js';
 import { BaseApp } from "./baseApp.js";
 import { registry } from "../registry.js";
 import { getImageUrl } from "../imageStore.js";
@@ -5,7 +7,20 @@ import { fetchGlances, formatBytes } from "./glances/gCore.js";
 import { state } from "../state.js";
 
 export class FetchApp extends BaseApp {
-    async render(app) {
+    async render() { return '<div class="app-content app-type-fetch"></div>'; }
+
+    onMount(el, app) {
+        const content = el.querySelector('.app-content');
+        this.poll(el, async () => {
+            const html = await this.renderContent(app);
+            if (this.disposed) return;
+            const template = document.createElement('template');
+            template.innerHTML = html;
+            content.replaceChildren(...template.content.firstElementChild.childNodes);
+        }, 30000);
+    }
+
+    async renderContent(app) {
         const data = app.data || {};
         const apiVer = data.apiVer || '3';
 
@@ -14,13 +29,13 @@ export class FetchApp extends BaseApp {
         let titleHost = data.host || 'hestia';
 
         // --- GLANCES (Server) ---
-        const url = data.glancesUrl || 'http://localhost:61208';
+        const url = data.glancesUrl || '/glances-api';
         const safeFetch = (endpoint) => fetchGlances(url, apiVer, endpoint).catch(() => null);
 
         try {
             // Added 'quicklook' for better CPU info
             const [mem, fs, os, system, quicklook, network, ipData] = await Promise.all([
-                safeFetch('mem'),
+                fetchGlances(url, apiVer, 'mem'),
                 safeFetch('fs'),
                 safeFetch('os'),
                 safeFetch('system'),
@@ -55,50 +70,14 @@ export class FetchApp extends BaseApp {
                 specs.push({ label: "Memory", val: `${formatBytes(mem.used)} / ${formatBytes(mem.total)}` });
             }
 
-            // Physical Disk Aggregation
-            if (fs && Array.isArray(fs)) {
-                const physicalDisks = {};
-
-                fs.forEach(f => {
-                    const dev = f.device_name || '';
-
-                    // Filter noise (Loops, Snaps, Docker overlays)
-                    if (!dev.startsWith('/dev/') ||
-                        dev.includes('/loop') ||
-                        f.mnt_point.startsWith('/snap') ||
-                        f.fs_type === 'squashfs') {
-                        return;
-                    }
-
-                    // Identify Parent Drive
-                    let parent = dev;
-
-                    // NVMe (e.g. /dev/nvme0n1p2 -> /dev/nvme0n1)
-                    const nvmeMatch = dev.match(/(\/dev\/nvme\d+n\d+)/);
-                    if (nvmeMatch) {
-                        parent = nvmeMatch[1];
-                    }
-                    // SATA/VirtIO (e.g. /dev/sda1 -> /dev/sda)
-                    else {
-                        const sdMatch = dev.match(/(\/dev\/[svx]?d[a-z])/);
-                        if (sdMatch) parent = sdMatch[1];
-                    }
-
-                    // Initialize or Accumulate
-                    if (!physicalDisks[parent]) {
-                        physicalDisks[parent] = { used: 0, size: 0, name: parent.replace('/dev/', '') };
-                    }
-                    physicalDisks[parent].used += f.used;
-                    physicalDisks[parent].size += f.size;
-                });
-
-                // Convert map to specs rows
-                Object.values(physicalDisks).forEach(d => {
-                    specs.push({
-                        label: "Disk",
-                        val: `${d.name} (${formatBytes(d.used)}/${formatBytes(d.size)})`
-                    });
-                });
+            if (fs) {
+                const volumes = storageVolumes(fs);
+                for (const volume of volumes) {
+                    specs.push({ label: 'Disk', val: `${volume.name} (${formatBytes(volume.used)} / ${formatBytes(volume.size)}, ${Math.round(volume.percent)}%)` });
+                }
+                if (!volumes.length) specs.push({ label: 'Disk', val: 'No storage volumes reported' });
+            } else {
+                specs.push({ label: 'Disk', val: 'Storage data unavailable' });
             }
 
             // IP Logic
@@ -110,7 +89,7 @@ export class FetchApp extends BaseApp {
             // URL Fallback
             if (!ipVal && url) {
                 try {
-                    const urlObj = new URL(url);
+                    const urlObj = new URL(url, window.location.origin);
                     if (urlObj.hostname !== 'localhost' && urlObj.hostname !== '127.0.0.1') {
                         ipVal = urlObj.hostname;
                     }
@@ -133,8 +112,7 @@ export class FetchApp extends BaseApp {
             this.addDashboardStats(specs);
 
         } catch (e) {
-            specs.push({ label: "Status", val: "Server Unreachable" });
-            console.error(e);
+            throw e;
         }
 
         // --- RENDER ---
@@ -152,8 +130,8 @@ export class FetchApp extends BaseApp {
         specs.forEach(s => {
             rowsHtml += `
                 <div class="fetch-row">
-                    <span class="key">${s.label}:</span>
-                    <span class="val" title="${s.val}">${s.val}</span>
+                    <span class="key">${escapeHtml(s.label)}:</span>
+                    <span class="val" title="${escapeHtml(s.val)}">${escapeHtml(s.val)}</span>
                 </div>`;
         });
 
@@ -166,13 +144,13 @@ export class FetchApp extends BaseApp {
 
         return `
             <div class="app-content app-type-fetch">
-                <div class="fetch-col-left">
+                <div class="fetch-col-left" style="${imgStyle ? '' : 'display:none'}">
                     <div class="fetch-avatar" style="${imgStyle}"></div>
                 </div>
 
                 <div class="fetch-col-right">
                     <div class="fetch-header">
-                        <span class="u">${titleUser}</span><span class="at">@</span><span class="h">${titleHost}</span>
+                        <span class="u">${escapeHtml(titleUser)}</span><span class="at">@</span><span class="h">${escapeHtml(titleHost)}</span>
                     </div>
                     <div class="fetch-sep"></div>
                     <div class="fetch-list">
@@ -207,7 +185,7 @@ registry.register('fetch', FetchApp, {
     category: 'data',
     defaultSize: { cols: 2, rows: 1 },
     settings: [
-        { name: 'glancesUrl', label: 'Glances URL', type: 'text', defaultValue: 'http://localhost:61208' },
+        { name: 'glancesUrl', label: 'Glances URL', type: 'text', defaultValue: '/glances-api' },
         {
             name: 'apiVer',
             label: 'API Version',
@@ -283,6 +261,7 @@ registry.register('fetch', FetchApp, {
         .fetch-list {
             display: flex; flex-direction: column; gap: 5px;
             flex: 1;
+            min-height: 0;
             overflow-y: auto;
             scrollbar-width: none;
         }
@@ -295,7 +274,7 @@ registry.register('fetch', FetchApp, {
             white-space: nowrap;
         }
         .fetch-row .key { color: var(--brand-primary); font-weight: bold; min-width: 60px; }
-        .fetch-row .val { color: var(--text-main); opacity: 0.9; overflow: hidden; text-overflow: ellipsis; }
+        .fetch-row .val { color: var(--text-main); opacity: 0.9; min-width:0; white-space:normal; overflow-wrap:anywhere; }
 
         /* --- 8x2 COLOR GRID (Responsive Height) --- */
         .fetch-colors {
